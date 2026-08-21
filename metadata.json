@@ -1,0 +1,8 @@
+{
+  "name": "Auralib",
+  "description": "Sistema de Gestión Bibliotecaria.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

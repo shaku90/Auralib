@@ -1,0 +1,59 @@
+{
+  "name": "auralib",
+  "private": true,
+  "version": "1.0.0",
+  "author": "Facundo Belascoain Kirby",
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && npx esbuild electron/main.ts --bundle --platform=node --format=esm --outfile=dist-electron/main.js --external:electron && npx esbuild electron/preload.ts --bundle --platform=node --format=cjs --outfile=dist-electron/preload.js --external:electron",
+    "build:app": "npm run build && electron-builder",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
+  },
+  "build": {
+    "appId": "com.auralib.app",
+    "productName": "Auralib",
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "assets/**/*"
+    ],
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.education"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png",
+      "category": "Education"
+    }
+  },
+  "dependencies": {
+    "marcjs": "^3.0.2",
+    "papaparse": "^5.5.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^22.14.0",
+    "@types/papaparse": "^5.5.2",
+    "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^42.3.3",
+    "electron-builder": "^26.15.2",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
