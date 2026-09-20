@@ -50,7 +50,13 @@ const Circulation: React.FC<CirculationProps> = ({ initialTab = 'prestamo' }) =>
 
   // --- ESTADO DE DEVOLUCIÓN ---
   const [returnInvInput, setReturnInvInput] = useState('');
-  const [returnMessage, setReturnMessage] = useState<{type: 'error'|'success', text: string} | null>(null);
+  const [returnMessage, setReturnMessage] = useState<{
+    type: 'error' | 'success';
+    text: string;
+    titulo?: string;
+    usuario?: string;
+    diasVencidos?: number;
+  } | null>(null);
 
   // --- ESTADO DE MOROSOS ---
   const [overdueLoans, setOverdueLoans] = useState<any[]>([]);
@@ -384,7 +390,10 @@ const Circulation: React.FC<CirculationProps> = ({ initialTab = 'prestamo' }) =>
           const result = await dbService.devolverPrestamoPorInventario(returnInvInput);
           setReturnMessage({ 
               type: 'success', 
-              text: `DEVOLUCIÓN EXITOSA: "${result.titulo}" devuelto por ${result.usuario}. ${result.diasVencidos > 0 ? `(ATENCIÓN: ${result.diasVencidos} días de retraso)` : ''}`
+              text: `DEVOLUCIÓN EXITOSA: "${result.titulo}" devuelto por ${result.usuario}. ${result.diasVencidos > 0 ? `(ATENCIÓN: ${result.diasVencidos} días de retraso)` : ''}`,
+              titulo: result.titulo,
+              usuario: result.usuario,
+              diasVencidos: result.diasVencidos
           });
           setReturnInvInput('');
       } catch (error: any) {
@@ -685,7 +694,23 @@ const Circulation: React.FC<CirculationProps> = ({ initialTab = 'prestamo' }) =>
 
                   {returnMessage && (
                       <div className={`p-4 rounded-lg ${returnMessage.type === 'error' ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-green-100 text-green-800 border border-green-200'}`}>
-                          <p className="text-sm font-medium">{returnMessage.text}</p>
+                          <p className="text-sm font-medium">
+                              {returnMessage.type === 'success' && returnMessage.titulo ? (
+                                  <>
+                                      <span className="font-bold text-green-900">DEVOLUCIÓN EXITOSA:</span>{' '}
+                                      <span className="text-black font-bold">"{returnMessage.titulo}"</span>{' '}
+                                      <span className="text-green-800">devuelto por</span>{' '}
+                                      <span className="text-black font-bold">{returnMessage.usuario}</span>.
+                                      {returnMessage.diasVencidos !== undefined && returnMessage.diasVencidos > 0 && (
+                                          <span className="text-red-700 font-bold ml-1.5">
+                                              (ATENCIÓN: {returnMessage.diasVencidos} días de retraso)
+                                          </span>
+                                      )}
+                                  </>
+                              ) : (
+                                  returnMessage.text
+                              )}
+                          </p>
                       </div>
                   )}
               </div>

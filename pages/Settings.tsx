@@ -938,7 +938,7 @@ const Settings: React.FC = () => {
 
       {/* Acerca de / Créditos de desarrollo */}
       <div className="mt-8 text-center text-xs text-gray-500 border-t border-gray-300 pt-6">
-        <p className="font-semibold text-gray-700 text-sm">Auralib v1.0.0</p>
+        <p className="font-semibold text-gray-700 text-sm">Auralib v1.0.1</p>
         <p className="mt-1">Sistema de Gestión Bibliotecaria</p>
       </div>
 

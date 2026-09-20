@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 
 interface NavbarProps {
   currentPage: string;
@@ -8,6 +8,8 @@ interface NavbarProps {
 }
 
 const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate, libraryName }) => {
+  const [logoError, setLogoError] = useState(false);
+
   const links = [
     { id: 'dashboard', label: 'Inicio' },
     { id: 'circulation', label: 'Préstamos' },
@@ -22,8 +24,21 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate, libraryName })
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <div className="flex-shrink-0 flex items-center">
-              <h1 className="text-xl font-bold text-white tracking-tight">Auralib</h1>
+            <div 
+              className="flex-shrink-0 flex items-center cursor-pointer"
+              onClick={() => onNavigate('dashboard')}
+              title="Auralib - Inicio"
+            >
+              {!logoError ? (
+                <img
+                  src="/assets/logo.png"
+                  alt="Auralib"
+                  className="h-6 sm:h-7 w-auto object-contain"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <h1 className="text-xl font-bold text-white tracking-tight">Auralib</h1>
+              )}
             </div>
             <div className="hidden sm:ml-8 sm:flex sm:space-x-4">
               {links.map((link) => (

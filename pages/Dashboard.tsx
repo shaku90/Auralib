@@ -37,8 +37,8 @@ const Dashboard: React.FC<{onNavigate: (p:string) => void}> = ({onNavigate}) => 
         return fechaEstimada <= hoy;
       });
 
-      // Ordenar por fecha de devolución (los más antiguos primero)
-      vencidos.sort((a, b) => new Date(a.fecha_devolucion_estimada).getTime() - new Date(b.fecha_devolucion_estimada).getTime());
+      // Ordenar por fecha de devolución (los vencimientos más recientes primero)
+      vencidos.sort((a, b) => new Date(b.fecha_devolucion_estimada).getTime() - new Date(a.fecha_devolucion_estimada).getTime());
 
       setPrestamosVencidos(vencidos);
     };
@@ -125,7 +125,7 @@ const Dashboard: React.FC<{onNavigate: (p:string) => void}> = ({onNavigate}) => 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Accesos rápidos</h3>
           <div className="space-y-3">
@@ -151,8 +151,8 @@ const Dashboard: React.FC<{onNavigate: (p:string) => void}> = ({onNavigate}) => 
             </p>
           </div>
           
-          <div className="flex-1 bg-gray-50 rounded-lg p-4 overflow-hidden flex flex-col border border-gray-200">
-            <div className="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+            <div className="max-h-[360px] overflow-y-auto pr-1.5 space-y-2">
               {prestamosVencidos.length === 0 ? (
                 <p className="text-sm text-gray-500 italic text-center py-4">No hay préstamos vencidos ni por vencer hoy.</p>
               ) : (
