@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import logoImg from '../assets/logo.png';
 
 interface NavbarProps {
   currentPage: string;
@@ -31,7 +32,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate, libraryName })
             >
               {!logoError ? (
                 <img
-                  src="/assets/logo.png"
+                  src={logoImg}
                   alt="Auralib"
                   className="h-6 sm:h-7 w-auto object-contain"
                   onError={() => setLogoError(true)}
