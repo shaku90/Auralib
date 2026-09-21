@@ -50,4 +50,10 @@ La app quedará disponible en `http://localhost:3000`.
 Desarrollado por Facundo Belascoain Kirby para brindar una solución libre, potente y amigable a las bibliotecas.
 
 ---
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia **GNU General Public License v3.0 (GPL-3.0)**. Consulta el archivo [LICENSE](LICENSE) para más detalles.
+
+---
 *Auralib — Sistema de Gestión Bibliotecaria.*

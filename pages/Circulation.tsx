@@ -20,7 +20,7 @@ const Circulation: React.FC<CirculationProps> = ({ initialTab = 'prestamo' }) =>
   }, [initialTab]);
 
   // --- ESTADO DE PRÉSTAMO ---
-  // Paso 0: Buscar Usuario, 1: Confirmar Usuario & Escanear Libro
+  // Paso 0: Buscar Usuario, 1: Confirmar Usuario e Ingreso de Inventario
   const [step, setStep] = useState(0);
   
   // Nuevo estado para búsqueda de usuarios
@@ -497,7 +497,7 @@ const Circulation: React.FC<CirculationProps> = ({ initialTab = 'prestamo' }) =>
               </div>
               )}
 
-              {/* Paso 1: Información de Usuario y Escaneo */}
+              {/* Paso 1: Información de Usuario e Ingreso de Inventario */}
               {step >= 1 && currentUser && (
                   <div>
                       <div className="flex justify-end mb-4">
