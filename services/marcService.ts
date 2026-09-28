@@ -303,12 +303,12 @@ export const marcService = {
 
         // Título y mención de responsabilidad (MARC 245)
         let titulo = '';
+        let mencion_responsabilidad: string | undefined = undefined;
         let variante_titulo: string | undefined = undefined;
-        let statementResp: string | undefined = undefined;
         
         if (fields['245'] && fields['245'][0]) {
           const sub = parseSubfields(fields['245'][0]);
-          statementResp = cleanPunctuation(sub['c']);
+          mencion_responsabilidad = cleanPunctuation(sub['c']);
           
           const subfieldItems = fields['245'][0]
             .split('^')
@@ -852,6 +852,7 @@ export const marcService = {
         const nuevoRecurso: Omit<Recurso, 'id'> = {
           tipo_material,
           titulo,
+          mencion_responsabilidad,
           variante_titulo,
           titulo_clave,
           responsabilidad_principal,
@@ -922,6 +923,241 @@ export const marcService = {
       recordsImported: importedCount,
       recordsSkippedOrError: recordsCount - importedCount + errorCount,
       totalRecordsFound: recordsCount
+    };
+  },
+
+  /**
+   * Lee un archivo .iso de Aguapey y actualiza ÚNICAMENTE el campo mencion_responsabilidad (MARC 245 $c)
+   * en los registros que ya existen en el catálogo (emparejando por número de inventario o por título + autor),
+   * sin duplicar registros ni alterar préstamos, estados de ejemplares ni ediciones manuales.
+   */
+  actualizarMencionesDesdeIso: async (
+    arrayBuffer: ArrayBuffer
+  ): Promise<{
+    totalRecordsFound: number;
+    recordsWithMencion: number;
+    recordsUpdated: number;
+    recordsUnmatched: number;
+  }> => {
+    const uint8 = new Uint8Array(arrayBuffer);
+
+    const cleanedBytes: number[] = [];
+    for (let i = 0; i < uint8.length; i++) {
+      const b = uint8[i];
+      if (b !== 10 && b !== 13) {
+        cleanedBytes.push(b);
+      }
+    }
+
+    const normalizar = (str?: string) =>
+      (str || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const normalizarInv = (inv?: string) => {
+      const limpio = (inv || '').trim();
+      if (/^\d+$/.test(limpio)) {
+        return String(parseInt(limpio, 10)).padStart(4, '0');
+      }
+      return limpio.toLowerCase();
+    };
+
+    const existentes = await dbService.listarRecursos();
+
+    // Índice rápido por número de inventario normalizado -> Recurso
+    const mapaPorInventario = new Map<string, Recurso>();
+    for (const rec of existentes) {
+      for (const ej of rec.ejemplares || []) {
+        if (ej.inventario) {
+          mapaPorInventario.set(normalizarInv(ej.inventario), rec);
+        }
+      }
+    }
+
+    const totalLength = cleanedBytes.length;
+    let pointer = 0;
+    let totalRecordsFound = 0;
+    let recordsWithMencion = 0;
+    let recordsUnmatched = 0;
+    const recursosModificadosMap = new Map<number, Recurso>();
+
+    while (pointer < totalLength) {
+      if (pointer + 5 > totalLength) break;
+
+      const lenStr = String.fromCharCode(
+        cleanedBytes[pointer],
+        cleanedBytes[pointer + 1],
+        cleanedBytes[pointer + 2],
+        cleanedBytes[pointer + 3],
+        cleanedBytes[pointer + 4]
+      );
+
+      const len = parseInt(lenStr, 10);
+      if (isNaN(len) || len <= 0) {
+        pointer++;
+        continue;
+      }
+
+      if (pointer + len > totalLength) {
+        break;
+      }
+
+      const recordBytes = new Uint8Array(cleanedBytes.slice(pointer, pointer + len));
+      pointer += len;
+      totalRecordsFound++;
+
+      try {
+        const baseAddressStr = String.fromCharCode(
+          recordBytes[12],
+          recordBytes[13],
+          recordBytes[14],
+          recordBytes[15],
+          recordBytes[16]
+        );
+        const baseAddress = parseInt(baseAddressStr, 10);
+        if (isNaN(baseAddress)) continue;
+
+        const directoryBytes = recordBytes.slice(24, baseAddress);
+        const directoryStr = String.fromCharCode(...directoryBytes);
+
+        const entries: { tag: string; length: number; offset: number }[] = [];
+        for (let d = 0; d < directoryStr.length - 1; d += 12) {
+          if (d + 12 > directoryStr.length) break;
+          const entryStr = directoryStr.slice(d, d + 12);
+          if (entryStr.startsWith('#')) break;
+
+          const tag = entryStr.slice(0, 3);
+          const length = parseInt(entryStr.slice(3, 7), 10);
+          const offset = parseInt(entryStr.slice(7, 12), 10);
+
+          entries.push({ tag, length, offset });
+        }
+
+        const fields: Record<string, string[]> = {};
+        for (const entry of entries) {
+          const fieldStart = baseAddress + entry.offset;
+          const fieldEnd = fieldStart + entry.length;
+          if (fieldEnd > recordBytes.length) continue;
+
+          let fieldBytes = recordBytes.slice(fieldStart, fieldEnd);
+          if (fieldBytes[fieldBytes.length - 1] === 35) {
+            fieldBytes = fieldBytes.slice(0, -1);
+          }
+
+          const value = decodeCP850(fieldBytes);
+          if (!fields[entry.tag]) {
+            fields[entry.tag] = [];
+          }
+          fields[entry.tag].push(value);
+        }
+
+        if (!fields['245'] || !fields['245'][0]) continue;
+
+        const sub245 = parseSubfields(fields['245'][0]);
+        const mencion_responsabilidad = cleanPunctuation(sub245['c']);
+        if (!mencion_responsabilidad) continue;
+
+        recordsWithMencion++;
+
+        // 1. Intentar emparejar por número de inventario (859 ^a)
+        let recursoEncontrado: Recurso | undefined = undefined;
+        if (fields['859']) {
+          for (const raw859 of fields['859']) {
+            const sub859 = parseSubfields(raw859);
+            const inv = cleanPunctuation(sub859['a']);
+            if (inv) {
+              const match = mapaPorInventario.get(normalizarInv(inv));
+              if (match) {
+                recursoEncontrado = match;
+                break;
+              }
+            }
+          }
+        }
+
+        // 2. Respaldo: si no se encontró por inventario, buscar por Título (+ Autor principal)
+        if (!recursoEncontrado) {
+          let titulo = '';
+          const subfieldItems = fields['245'][0]
+            .split('^')
+            .slice(1)
+            .map(part => ({
+              key: part.charAt(0),
+              value: cleanPunctuation(part.substring(1)) || ''
+            }))
+            .filter(item => item.key !== 'c' && item.value !== '');
+
+          if (subfieldItems.length > 0) {
+            let builtTitle = '';
+            for (let i = 0; i < subfieldItems.length; i++) {
+              const item = subfieldItems[i];
+              if (i === 0) {
+                builtTitle = item.value;
+              } else if (item.key === 'b') {
+                if (!builtTitle.endsWith(':')) builtTitle += ' :';
+                builtTitle += ' ' + item.value;
+              } else if (item.key === 'n' || item.key === 'p') {
+                if (!builtTitle.endsWith('.')) builtTitle += '.';
+                builtTitle += ' ' + item.value;
+              } else {
+                builtTitle += ' ' + item.value;
+              }
+            }
+            titulo = cleanPunctuation(builtTitle) || '';
+          } else {
+            titulo = cleanPunctuation(sub245['a']) || '';
+          }
+
+          let autorIso = '';
+          if (fields['100'] && fields['100'][0]) {
+            const sub100 = parseSubfields(fields['100'][0]);
+            const name = cleanPunctuation(sub100['a']);
+            const dates = cleanPunctuation(sub100['d']);
+            if (name) autorIso = dates ? `${name}, ${dates}` : name;
+          } else if (fields['110'] && fields['110'][0]) {
+            autorIso = cleanPunctuation(parseSubfields(fields['110'][0])['a']) || '';
+          } else if (fields['111'] && fields['111'][0]) {
+            autorIso = cleanPunctuation(parseSubfields(fields['111'][0])['a']) || '';
+          }
+
+          const tituloNorm = normalizar(titulo);
+          const autorNorm = normalizar(autorIso);
+
+          if (tituloNorm) {
+            recursoEncontrado = existentes.find(
+              r =>
+                normalizar(r.titulo) === tituloNorm &&
+                (!autorNorm || normalizar(r.responsabilidad_principal?.nombre) === autorNorm)
+            );
+            if (!recursoEncontrado) {
+              recursoEncontrado = existentes.find(r => normalizar(r.titulo) === tituloNorm);
+            }
+          }
+        }
+
+        if (recursoEncontrado) {
+          recursoEncontrado.mencion_responsabilidad = mencion_responsabilidad;
+          recursosModificadosMap.set(recursoEncontrado.id, recursoEncontrado);
+        } else {
+          recordsUnmatched++;
+        }
+      } catch (err) {
+        console.error(`Error al actualizar mención en registro #${totalRecordsFound}:`, err);
+      }
+    }
+
+    if (recursosModificadosMap.size > 0) {
+      await dbService.actualizarRecursosMasivo(Array.from(recursosModificadosMap.values()));
+    }
+
+    return {
+      totalRecordsFound,
+      recordsWithMencion,
+      recordsUpdated: recursosModificadosMap.size,
+      recordsUnmatched
     };
   },
 
@@ -1080,14 +1316,20 @@ export const marcService = {
 
         // Título y mención de responsabilidad (MARC 245)
         let titulo = '';
+        let mencion_responsabilidad: string | undefined = undefined;
         let variante_titulo: string | undefined = undefined;
         
         if (fields['245'] && fields['245'][0]) {
           const sub = parseMrcSubfields(fields['245'][0]);
           const a = sub['a']?.[0];
           const b = sub['b']?.[0];
+          const c = sub['c']?.[0];
           const n = sub['n']?.[0];
           const p = sub['p']?.[0];
+          
+          if (c) {
+            mencion_responsabilidad = cleanPunctuation(c);
+          }
           
           let titleParts: string[] = [];
           if (a) titleParts.push(cleanPunctuation(a) || '');
@@ -1581,6 +1823,7 @@ export const marcService = {
         const nuevoRecurso: Omit<Recurso, 'id'> = {
           tipo_material,
           titulo,
+          mencion_responsabilidad,
           variante_titulo,
           titulo_clave,
           responsabilidad_principal,

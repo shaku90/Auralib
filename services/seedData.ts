@@ -7,6 +7,7 @@ export const RECURSOS_SEMILLA: Recurso[] = [
     id: 1,
     tipo_material: 'Material cartográfico',
     titulo: 'República Argentina : mapa político escolar',
+    mencion_responsabilidad: 'Instituto Geográfico Nacional',
     responsabilidad_principal: { tipo: 'CORPORATIVA', nombre: 'Argentina. Instituto Geográfico Nacional' },
     responsabilidad_secundaria: [],
     lugar_publicacion: ['Buenos Aires'],
@@ -29,6 +30,7 @@ export const RECURSOS_SEMILLA: Recurso[] = [
     id: 2,
     tipo_material: 'Libro',
     titulo: 'Formación Ética y Ciudadana 1 : los derechos, la ley y la democracia',
+    mencion_responsabilidad: 'Gustavo Schujman, Silvia Finocchio',
     responsabilidad_principal: { tipo: 'AUTOR', nombre: 'Schujman, Gustavo' },
     responsabilidad_secundaria: [{ tipo: 'AUTOR', nombre: 'Finocchio, Silvia' }],
     lugar_publicacion: ['Buenos Aires'],
@@ -73,6 +75,7 @@ export const RECURSOS_SEMILLA: Recurso[] = [
     id: 4,
     tipo_material: 'Libro',
     titulo: 'Ciencias Naturales 8 : la materia, la energía y la vida',
+    mencion_responsabilidad: 'María Gabriela Barderi, Francisco Cuniglio, Eduardo Fernández',
     responsabilidad_principal: { tipo: 'AUTOR', nombre: 'Barderi, María Gabriela' },
     responsabilidad_secundaria: [
       { tipo: 'AUTOR', nombre: 'Cuniglio, Francisco' },
@@ -100,6 +103,7 @@ export const RECURSOS_SEMILLA: Recurso[] = [
     id: 5,
     tipo_material: 'Video',
     titulo: 'La historia oficial',
+    mencion_responsabilidad: 'dirigida por Luis Puenzo ; guion de Aída Bortnik y Luis Puenzo',
     responsabilidad_principal: { tipo: 'AUTOR', nombre: 'Puenzo, Luis' },
     responsabilidad_secundaria: [
       { tipo: 'AUTOR', nombre: 'Aída Bortnik' },
@@ -169,6 +173,7 @@ export const RECURSOS_SEMILLA: Recurso[] = [
     id: 8,
     tipo_material: 'Libro',
     titulo: 'La fábrica de serenatas',
+    mencion_responsabilidad: 'Liliana Bodoc ; ilustraciones de Pez',
     responsabilidad_principal: { tipo: 'AUTOR', nombre: 'Bodoc, Liliana' },
     responsabilidad_secundaria: [],
     lugar_publicacion: ['Buenos Aires'],
@@ -192,6 +197,7 @@ export const RECURSOS_SEMILLA: Recurso[] = [
     id: 9,
     tipo_material: 'Libro',
     titulo: 'Antología de cuentistas latinoamericanos',
+    mencion_responsabilidad: 'selección y prólogo de Juan-Jacobo Bajarlía',
     responsabilidad_principal: { tipo: 'AUTOR', nombre: 'Bajarlía, Juan-Jacobo' },
     responsabilidad_secundaria: [],
     lugar_publicacion: ['Buenos Aires'],
@@ -214,6 +220,7 @@ export const RECURSOS_SEMILLA: Recurso[] = [
     id: 10,
     tipo_material: 'Libro',
     titulo: 'Filosofía : un espacio de pensamiento',
+    mencion_responsabilidad: 'Guillermo A. Obiols',
     responsabilidad_principal: { tipo: 'AUTOR', nombre: 'Obiols, Guillermo A.' },
     responsabilidad_secundaria: [],
     lugar_publicacion: ['Buenos Aires'],
@@ -237,6 +244,7 @@ export const RECURSOS_SEMILLA: Recurso[] = [
     id: 11,
     tipo_material: 'Libro',
     titulo: 'Biología 2 : los caminos de la evolución',
+    mencion_responsabilidad: 'Alejandro J. Balbiano, Ricardo Franco, Elina Godoy',
     responsabilidad_principal: { tipo: 'AUTOR', nombre: 'Balbiano, Alejandro J.' },
     responsabilidad_secundaria: [
       { tipo: 'AUTOR', nombre: 'Franco, Ricardo' },
@@ -264,6 +272,7 @@ export const RECURSOS_SEMILLA: Recurso[] = [
     id: 12,
     tipo_material: 'Libro',
     titulo: 'Contextos Digitales : Geografía de la Argentina',
+    mencion_responsabilidad: 'Mariana Arzeno, Hortensia Castro, Sandra Minvielle',
     responsabilidad_principal: { tipo: 'AUTOR', nombre: 'Arzeno, Mariana' },
     responsabilidad_secundaria: [
       { tipo: 'AUTOR', nombre: 'Castro, Hortensia' },
@@ -289,6 +298,7 @@ export const RECURSOS_SEMILLA: Recurso[] = [
     id: 13,
     tipo_material: 'Libro',
     titulo: 'Matemática 1',
+    mencion_responsabilidad: 'Adriana Berio, María Elena Burgos, Marta García',
     responsabilidad_principal: { tipo: 'AUTOR', nombre: 'Berio, Adriana' },
     responsabilidad_secundaria: [
       { tipo: 'AUTOR', nombre: 'Burgos, María Elena' },
@@ -315,6 +325,7 @@ export const RECURSOS_SEMILLA: Recurso[] = [
     id: 14,
     tipo_material: 'Libro',
     titulo: 'Lengua y Literatura 1 : las personas y las palabras',
+    mencion_responsabilidad: 'Myriam Delgado, Graciela Centrón',
     responsabilidad_principal: { tipo: 'AUTOR', nombre: 'Delgado, Myriam' },
     responsabilidad_secundaria: [{ tipo: 'AUTOR', nombre: 'Centrón, Graciela' }],
     lugar_publicacion: ['Buenos Aires'],
@@ -337,6 +348,7 @@ export const RECURSOS_SEMILLA: Recurso[] = [
     id: 15,
     tipo_material: 'Libro',
     titulo: 'Historia : las sociedades de América y Europa entre los siglos XIV y XVIII',
+    mencion_responsabilidad: 'Carolina Caticha, Diana González, José Svarzman',
     responsabilidad_principal: { tipo: 'AUTOR', nombre: 'Caticha, Carolina' },
     responsabilidad_secundaria: [
       { tipo: 'AUTOR', nombre: 'González, Diana' },
@@ -410,6 +422,7 @@ export const RECURSOS_SEMILLA: Recurso[] = [
     id: 18,
     tipo_material: 'Libro',
     titulo: 'Antología de cuentos fantásticos clásicos',
+    mencion_responsabilidad: 'compilado por Adolfo Bioy Casares',
     responsabilidad_principal: { tipo: 'AUTOR', nombre: 'Bioy Casares, Adolfo' },
     responsabilidad_secundaria: [
       { tipo: 'AUTOR', nombre: 'Poe, Edgar Allan' }

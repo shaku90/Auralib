@@ -86,7 +86,79 @@ const getList = <T>(key: string): T[] => {
     return [];
   }
 };
-const saveList = (key: string, data: any[]) => localStorage.setItem(key, JSON.stringify(data));
+const ORDEN_CAMPOS_RECURSO: (keyof Recurso)[] = [
+  'id',
+  'tipo_material',
+  'titulo',
+  'mencion_responsabilidad',
+  'variante_titulo',
+  'titulo_uniforme',
+  'titulo_clave',
+  'responsabilidad_principal',
+  'responsabilidad_secundaria',
+  'lugar_publicacion',
+  'editor',
+  'fecha',
+  'edicion',
+  'extension',
+  'otros_detalles_fisicos',
+  'dimensiones',
+  'material_complementario',
+  'frecuencia',
+  'volumen_numero',
+  'existencias',
+  'escala',
+  'proyeccion',
+  'coordenadas',
+  'soporte_fisico',
+  'color',
+  'formato_audio',
+  'duracion',
+  'detalles_reproduccion',
+  'instrumentacion',
+  'clave_tono',
+  'formato_video',
+  'sistema_grabacion',
+  'descripcion_objeto',
+  'dimensiones_3d',
+  'tesis',
+  'coleccion',
+  'notas',
+  'contenido',
+  'numero_normalizado',
+  'numero_nomalizado',
+  'url_recurso',
+  'temas',
+  'ejemplares'
+];
+
+// Reordena las propiedades de un registro bibliográfico según la estructura lógica (MARC21 / RCAA2)
+const ordenarCamposRecurso = (recurso: Recurso): Recurso => {
+  const ordenado: Record<string, any> = {};
+  const origen = recurso as Record<string, any>;
+
+  for (const key of ORDEN_CAMPOS_RECURSO) {
+    if (key in origen && origen[key] !== undefined) {
+      ordenado[key] = origen[key];
+    }
+  }
+
+  // Conservar cualquier propiedad adicional no listada por compatibilidad
+  for (const key of Object.keys(origen)) {
+    if (!(key in ordenado) && origen[key] !== undefined) {
+      ordenado[key] = origen[key];
+    }
+  }
+
+  return ordenado as Recurso;
+};
+
+const saveList = (key: string, data: any[]) => {
+  const normalizedData = key === STORAGE_KEYS.RECURSOS
+    ? data.map((item: Recurso) => ordenarCamposRecurso(item))
+    : data;
+  localStorage.setItem(key, JSON.stringify(normalizedData));
+};
 
 // Actualización automática de autoridades y términos de indización al guardar recursos
 const registrarAutoresYTemas = async (recurso: Partial<Recurso>) => {
@@ -160,7 +232,7 @@ export const dbService = {
   },
   exportarDatos: async (): Promise<BackupData> => {
     return {
-      recursos: getList<Recurso>(STORAGE_KEYS.RECURSOS),
+      recursos: getList<Recurso>(STORAGE_KEYS.RECURSOS).map(ordenarCamposRecurso),
       usuarios: getList<Usuario>(STORAGE_KEYS.USUARIOS),
       prestamos: getList<Prestamo>(STORAGE_KEYS.PRESTAMOS),
       indices: getList<string>(STORAGE_KEYS.INDICES),
@@ -172,7 +244,7 @@ export const dbService = {
   importarDatos: async (data: BackupData): Promise<void> => {
     if (!data.recursos || !data.usuarios) throw new Error("Formato de backup inválido");
     
-    localStorage.setItem(STORAGE_KEYS.RECURSOS, JSON.stringify(data.recursos));
+    saveList(STORAGE_KEYS.RECURSOS, data.recursos);
     localStorage.setItem(STORAGE_KEYS.USUARIOS, JSON.stringify(data.usuarios));
     localStorage.setItem(STORAGE_KEYS.PRESTAMOS, JSON.stringify(data.prestamos));
     localStorage.setItem(STORAGE_KEYS.INDICES, JSON.stringify(data.indices || []));
@@ -273,7 +345,7 @@ export const dbService = {
   crearUsuario: async (usuario: Omit<Usuario, 'id'>): Promise<Usuario> => {
     const usuarios = getList<Usuario>(STORAGE_KEYS.USUARIOS);
     const newId = (Math.max(...usuarios.map(u => u.id), 0) || 0) + 1;
-    const nuevo = { ...usuario, id: newId };
+    const nuevo = { id: newId, ...usuario };
     usuarios.push(nuevo);
     saveList(STORAGE_KEYS.USUARIOS, usuarios);
     return nuevo;
@@ -283,7 +355,7 @@ export const dbService = {
     let currentId = (Math.max(...usuarios.map(u => u.id), 0) || 0) + 1;
     
     for (const u of nuevosUsuarios) {
-      usuarios.push({ ...u, id: currentId++ });
+      usuarios.push({ id: currentId++, ...u });
     }
     
     saveList(STORAGE_KEYS.USUARIOS, usuarios);
@@ -338,7 +410,7 @@ export const dbService = {
   crearRecurso: async (recurso: Omit<Recurso, 'id'>): Promise<Recurso> => {
     const recursos = getList<Recurso>(STORAGE_KEYS.RECURSOS);
     const newId = (Math.max(...recursos.map(r => r.id), 0) || 0) + 1;
-    const nuevo = { ...recurso, id: newId };
+    const nuevo = ordenarCamposRecurso({ id: newId, ...recurso });
     recursos.push(nuevo);
     saveList(STORAGE_KEYS.RECURSOS, recursos);
 
@@ -351,7 +423,7 @@ export const dbService = {
     const recursos = getList<Recurso>(STORAGE_KEYS.RECURSOS);
     const index = recursos.findIndex(r => r.id === recurso.id);
     if (index !== -1) {
-      recursos[index] = recurso;
+      recursos[index] = ordenarCamposRecurso(recurso);
       saveList(STORAGE_KEYS.RECURSOS, recursos);
 
       await registrarAutoresYTemas(recurso);
@@ -373,6 +445,8 @@ export const dbService = {
 
        return recursos.filter(r => 
          normalizarTexto(r.titulo).includes(f) || 
+         (r.mencion_responsabilidad && normalizarTexto(r.mencion_responsabilidad).includes(f)) ||
+         (r.variante_titulo && normalizarTexto(r.variante_titulo).includes(f)) ||
          (r.titulo_uniforme && normalizarTexto(r.titulo_uniforme).includes(f)) ||
          (r.titulo_clave && normalizarTexto(r.titulo_clave).includes(f)) ||
          normalizarTexto(r.responsabilidad_principal.nombre).includes(f) ||

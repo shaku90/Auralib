@@ -171,6 +171,7 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
   
   // Campos básicos
   const [titulo, setTitulo] = useState('');
+  const [mencionResponsabilidad, setMencionResponsabilidad] = useState('');
   const [varianteTitulo, setVarianteTitulo] = useState('');
   const [tituloUniforme, setTituloUniforme] = useState('');
   const [tituloClave, setTituloClave] = useState('');
@@ -690,6 +691,7 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
       const recursoData: Omit<Recurso, 'id'> = {
           tipo_material: tipoMaterial,
           titulo,
+          mencion_responsabilidad: mencionResponsabilidad.trim() || undefined,
           variante_titulo: varianteTitulo || undefined,
           titulo_uniforme: tituloUniforme || undefined,
           titulo_clave: tituloClave || undefined,
@@ -731,7 +733,7 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
       };
 
       if (editingId) {
-          await dbService.actualizarRecurso({ ...recursoData, id: editingId });
+          await dbService.actualizarRecurso({ id: editingId, ...recursoData });
       } else {
           await dbService.crearRecurso(recursoData);
       }
@@ -746,7 +748,7 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
   const resetForm = () => {
       setEditingId(null);
       setFormError(null);
-      setTitulo(''); setVarianteTitulo(''); setTituloUniforme(''); setTituloClave('');
+      setTitulo(''); setMencionResponsabilidad(''); setVarianteTitulo(''); setTituloUniforme(''); setTituloClave('');
       setRespPrincipal({ tipo: 'AUTOR', nombre: '' });
       setRespSecundarias([]);
       setLugares(['']); setEditores(['']); setFechas(['']);
@@ -767,6 +769,7 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
       setEditingId(recurso.id);
       setTipoMaterial(recurso.tipo_material);
       setTitulo(recurso.titulo);
+      setMencionResponsabilidad(recurso.mencion_responsabilidad || '');
       setVarianteTitulo(recurso.variante_titulo || (recurso as any).subtitulo || '');
       setTituloUniforme(recurso.titulo_uniforme || '');
       setTituloClave(recurso.titulo_clave || '');
@@ -1226,6 +1229,12 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
 
                                     {/* Mención de Responsabilidad */}
                                     <div className="text-sm text-gray-700 space-y-0.5">
+                                        {l.mencion_responsabilidad && (
+                                            <p>
+                                                <span className="text-gray-500 font-medium">Mención de responsabilidad: </span>
+                                                <span className="text-gray-800">{l.mencion_responsabilidad}</span>
+                                            </p>
+                                        )}
                                         <p>
                                             <span className="text-gray-500 font-medium">Responsable principal: </span>
                                             <span className="font-semibold text-gray-800">{l.responsabilidad_principal?.nombre || '—'}</span>
@@ -1451,7 +1460,7 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
                                     <div className="space-y-4">
                                         <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-200">
                                             <div>
-                                                <span className="text-xs text-gray-500 font-medium block">Total de Ejemplares</span>
+                                                <span className="text-xs text-gray-500 font-medium block">Total de ejemplares</span>
                                                 <span className="text-lg font-bold text-gray-800">{totalEjemplares}</span>
                                             </div>
                                             <div className="text-right">
@@ -1819,6 +1828,11 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
                             <input required type="text" className="mt-1 block w-full border border-gray-300 rounded p-2 bg-white text-sm focus:ring-2 focus:ring-sky-200 focus:outline-none" 
                                 value={titulo} onChange={e => setTitulo(e.target.value)} />
                         </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Mención de responsabilidad</label>
+                            <input type="text" className="mt-1 block w-full border border-gray-300 rounded p-2 bg-white text-sm focus:ring-2 focus:ring-sky-200 focus:outline-none" 
+                                value={mencionResponsabilidad} onChange={e => setMencionResponsabilidad(e.target.value)} />
+                        </div>
                         {tipoMaterial === 'Publicación seriada' && (
                             <div className="bg-teal-50 p-2.5 rounded border border-teal-100/60">
                                 <label className="block text-sm font-medium text-teal-900">Título clave</label>
@@ -1870,8 +1884,8 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
 
                         {/* Secundarias */}
                         {respSecundarias.map((resp, idx) => (
-                            <div key={idx} className="grid grid-cols-1 md:grid-cols-[1fr_2.5fr_auto] gap-2 items-center">
-                                <div className="w-full">
+                            <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                <div className="md:col-span-1">
                                     <select 
                                         className="w-full border border-gray-300 p-2 rounded bg-white text-sm focus:ring-2 focus:ring-sky-200 focus:outline-none"
                                         value={resp.tipo}
@@ -1882,20 +1896,20 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
                                         <option value="GEOGRAFICA">Entidad Geográfica</option>
                                     </select>
                                 </div>
-                                <div className="w-full">
-                                    <input type="text" list="authorities-list" className="w-full border border-gray-300 rounded p-2 bg-white text-sm focus:ring-2 focus:ring-sky-200 focus:outline-none" 
+                                <div className="md:col-span-3 flex gap-2 items-center">
+                                    <input type="text" list="authorities-list" className="flex-1 w-full border border-gray-300 rounded p-2 bg-white text-sm focus:ring-2 focus:ring-sky-200 focus:outline-none" 
                                         value={resp.nombre} onChange={e => updateRespSecundaria(idx, 'nombre', e.target.value)} 
                                         placeholder="Colaborador, Traductor, etc."
                                     />
+                                    <button 
+                                        type="button" 
+                                        onClick={() => removeRespSecundaria(idx)} 
+                                        className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition duration-150 flex items-center justify-center shrink-0 w-9 h-9"
+                                        title="Eliminar responsabilidad"
+                                    >
+                                        ✕
+                                    </button>
                                 </div>
-                                <button 
-                                    type="button" 
-                                    onClick={() => removeRespSecundaria(idx)} 
-                                    className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition duration-150 flex items-center justify-center shrink-0 w-9 h-9"
-                                    title="Eliminar responsabilidad"
-                                >
-                                    ✕
-                                </button>
                             </div>
                         ))}
                         <button type="button" onClick={addRespSecundaria} className="text-sm text-sky-600 mt-2 font-normal">+ Añadir Responsabilidad Secundaria</button>

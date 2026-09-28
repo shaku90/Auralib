@@ -52,6 +52,7 @@ export interface Recurso {
   
   // Títulos
   titulo: string; // Subcampo MARC 245 $a
+  mencion_responsabilidad?: string; // Subcampo MARC 245 $c (Mención de responsabilidad)
   variante_titulo?: string; // Variantes del título
   titulo_uniforme?: string;
   titulo_clave?: string; // Título clave para publicaciones seriadas (MARC 222)

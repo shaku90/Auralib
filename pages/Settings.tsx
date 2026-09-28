@@ -492,6 +492,9 @@ const Settings: React.FC = () => {
           sortedBooks.forEach((l, idx) => {
               text += `Registro Nro: ${(idx + 1)}\n`;
               text += `Título: ${l.titulo}${(l.variante_titulo || (l as any).subtitulo) ? ` | ${(l.variante_titulo || (l as any).subtitulo)}` : ''}\n`;
+              if (l.mencion_responsabilidad) {
+                  text += `Mención de Responsabilidad: ${l.mencion_responsabilidad}\n`;
+              }
               if (l.titulo_uniforme) {
                   text += `Título Uniforme: ${l.titulo_uniforme}\n`;
               }
@@ -938,7 +941,7 @@ const Settings: React.FC = () => {
 
       {/* Acerca de / Créditos de desarrollo */}
       <div className="mt-8 text-center text-xs text-gray-500 border-t border-gray-300 pt-6">
-        <p className="font-semibold text-gray-700 text-sm">Auralib v1.0.1</p>
+        <p className="font-semibold text-gray-700 text-sm">Auralib v1.1.0</p>
         <p className="mt-1">Sistema de Gestión Bibliotecaria</p>
       </div>
 
