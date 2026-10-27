@@ -42,3 +42,38 @@ html, body, #root {
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* Efecto de resplandor / brillo animado para Devolución Exitosa */
+@keyframes textShimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 7px rgba(16, 185, 129, 0.75));
+  }
+}
+
+.animate-text-shimmer {
+  background: linear-gradient(
+    90deg,
+    #14532d 0%,
+    #15803d 25%,
+    #22c55e 50%,
+    #15803d 75%,
+    #14532d 100%
+  );
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: textShimmer 3s ease-in-out infinite, glowPulse 2.5s ease-in-out infinite;
+}

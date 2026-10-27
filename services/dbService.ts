@@ -1,5 +1,5 @@
 
-import { Recurso, Usuario, Prestamo, Configuracion, EstadoRecurso, EstadoPrestamo, BackupData } from '../types';
+import { Recurso, Usuario, Prestamo, Configuracion, EstadoRecurso, EstadoPrestamo, BackupData, TipoResponsabilidad } from '../types';
 import { CURRENT_SEED_VERSION, RECURSOS_SEMILLA, USUARIOS_SEMILLA, PRESTAMOS_SEMILLA, INDICES_SEMILLA } from './seedData';
 import { normalizarTexto } from '../utils/textUtils';
 
@@ -12,12 +12,14 @@ const STORAGE_KEYS = {
   USUARIOS: 'sigb_usuarios',
   PRESTAMOS: 'sigb_prestamos',
   AUTORIDADES: 'sigb_autoridades',
+  AUTORIDADES_TIPOS: 'sigb_autoridades_tipos',
   INDICES: 'sigb_indices',
   CONFIG: 'sigb_config'
 };
 
 // Datos semilla
 const seedData = () => {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
   const SEED_VERSION_KEY = 'sigb_seed_version';
   const rawRecursos = localStorage.getItem(STORAGE_KEYS.RECURSOS);
   const seedVersion = localStorage.getItem(SEED_VERSION_KEY);
@@ -38,6 +40,7 @@ const seedData = () => {
     localStorage.removeItem(STORAGE_KEYS.PRESTAMOS);
     localStorage.removeItem(STORAGE_KEYS.INDICES);
     localStorage.removeItem(STORAGE_KEYS.AUTORIDADES);
+    localStorage.removeItem(STORAGE_KEYS.AUTORIDADES_TIPOS);
 
     localStorage.setItem(STORAGE_KEYS.RECURSOS, JSON.stringify(RECURSOS_SEMILLA));
     localStorage.setItem(STORAGE_KEYS.USUARIOS, JSON.stringify(USUARIOS_SEMILLA));
@@ -57,6 +60,21 @@ const seedData = () => {
       return list;
     }))).filter(Boolean).sort((a, b) => a.localeCompare(b, 'es'));
     localStorage.setItem(STORAGE_KEYS.AUTORIDADES, JSON.stringify(autoresSemilla));
+
+    const seedTypesMap: Record<string, TipoResponsabilidad> = {};
+    RECURSOS_SEMILLA.forEach(r => {
+      if (r.responsabilidad_principal?.nombre) {
+        seedTypesMap[r.responsabilidad_principal.nombre.toLowerCase().trim()] = r.responsabilidad_principal.tipo || 'AUTOR';
+      }
+      if (r.responsabilidad_secundaria) {
+        r.responsabilidad_secundaria.forEach(sec => {
+          if (sec.nombre) {
+            seedTypesMap[sec.nombre.toLowerCase().trim()] = sec.tipo || 'AUTOR';
+          }
+        });
+      }
+    });
+    localStorage.setItem(STORAGE_KEYS.AUTORIDADES_TIPOS, JSON.stringify(seedTypesMap));
 
     localStorage.setItem(SEED_VERSION_KEY, CURRENT_SEED_VERSION);
   }
@@ -160,6 +178,22 @@ const saveList = (key: string, data: any[]) => {
   localStorage.setItem(key, JSON.stringify(normalizedData));
 };
 
+// Helpers para tipos de autoridades ('AUTOR', 'CORPORATIVA', 'GEOGRAFICA')
+const getAuthorityTypesMap = (): Record<string, TipoResponsabilidad> => {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.AUTORIDADES_TIPOS);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveAuthorityTypesMap = (map: Record<string, TipoResponsabilidad>) => {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  localStorage.setItem(STORAGE_KEYS.AUTORIDADES_TIPOS, JSON.stringify(map));
+};
+
 // Actualización automática de autoridades y términos de indización al guardar recursos
 const registrarAutoresYTemas = async (recurso: Partial<Recurso>) => {
   // 1. Temas de indización
@@ -169,27 +203,42 @@ const registrarAutoresYTemas = async (recurso: Partial<Recurso>) => {
     saveList(STORAGE_KEYS.INDICES, Array.from(setIndices).sort((a, b) => a.localeCompare(b, 'es')));
   }
 
-  // 2. Autoridades de autores
-  const autores: string[] = [];
+  // 2. Autoridades de autores y sus tipos
+  const autores: { nombre: string; tipo: TipoResponsabilidad }[] = [];
   if (recurso.responsabilidad_principal?.nombre) {
-    autores.push(recurso.responsabilidad_principal.nombre.trim());
+    autores.push({
+      nombre: recurso.responsabilidad_principal.nombre.trim(),
+      tipo: recurso.responsabilidad_principal.tipo || 'AUTOR'
+    });
   }
   if (recurso.responsabilidad_secundaria) {
     recurso.responsabilidad_secundaria.forEach(sec => {
-      if (sec.nombre) autores.push(sec.nombre.trim());
+      if (sec.nombre) {
+        autores.push({
+          nombre: sec.nombre.trim(),
+          tipo: sec.tipo || 'AUTOR'
+        });
+      }
     });
   }
   if (autores.length > 0) {
     const autoresActuales = await dbService.listarAutoridades();
     const lowerActuales = new Set(autoresActuales.map(a => a.toLowerCase().trim()));
     const nuevosAutores = [...autoresActuales];
+    const typesMap = getAuthorityTypesMap();
+
     autores.forEach(a => {
-      if (a && !lowerActuales.has(a.toLowerCase().trim())) {
-        nuevosAutores.push(a);
-        lowerActuales.add(a.toLowerCase().trim());
+      if (a.nombre) {
+        const norm = a.nombre.toLowerCase().trim();
+        if (!lowerActuales.has(norm)) {
+          nuevosAutores.push(a.nombre);
+          lowerActuales.add(norm);
+        }
+        typesMap[norm] = a.tipo;
       }
     });
     saveList(STORAGE_KEYS.AUTORIDADES, nuevosAutores.sort((a, b) => a.localeCompare(b, 'es')));
+    saveAuthorityTypesMap(typesMap);
   }
 };
 
@@ -201,6 +250,7 @@ export const dbService = {
     localStorage.removeItem(STORAGE_KEYS.PRESTAMOS);
     localStorage.removeItem(STORAGE_KEYS.INDICES);
     localStorage.removeItem(STORAGE_KEYS.AUTORIDADES);
+    localStorage.removeItem(STORAGE_KEYS.AUTORIDADES_TIPOS);
     localStorage.removeItem(STORAGE_KEYS.CONFIG);
     seedData();
   },
@@ -210,6 +260,7 @@ export const dbService = {
     localStorage.setItem(STORAGE_KEYS.PRESTAMOS, JSON.stringify([]));
     localStorage.setItem(STORAGE_KEYS.INDICES, JSON.stringify([]));
     localStorage.setItem(STORAGE_KEYS.AUTORIDADES, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.AUTORIDADES_TIPOS, JSON.stringify({}));
     
     const defaultConfig: Configuracion = {
       nombre_biblioteca: '',
@@ -427,7 +478,23 @@ export const dbService = {
       saveList(STORAGE_KEYS.RECURSOS, recursos);
 
       await registrarAutoresYTemas(recurso);
+      await dbService.depurarAutoridadesHuerfanas();
     }
+  },
+
+  actualizarRecursosMasivo: async (recursosNuevos: Recurso[]): Promise<void> => {
+    const recursos = getList<Recurso>(STORAGE_KEYS.RECURSOS);
+    const mapaNuevos = new Map(recursosNuevos.map(r => [r.id, ordenarCamposRecurso(r)]));
+    for (let i = 0; i < recursos.length; i++) {
+      if (mapaNuevos.has(recursos[i].id)) {
+        recursos[i] = mapaNuevos.get(recursos[i].id)!;
+      }
+    }
+    saveList(STORAGE_KEYS.RECURSOS, recursos);
+    for (const r of recursosNuevos) {
+      await registrarAutoresYTemas(r);
+    }
+    await dbService.depurarAutoridadesHuerfanas();
   },
   
   listarRecursos: async (filtro?: string): Promise<Recurso[]> => {
@@ -474,6 +541,8 @@ export const dbService = {
     let recursos = getList<Recurso>(STORAGE_KEYS.RECURSOS);
     recursos = recursos.filter(r => r.id != id);
     saveList(STORAGE_KEYS.RECURSOS, recursos);
+
+    await dbService.depurarAutoridadesHuerfanas();
   },
 
   actualizarEstadoEjemplar: async (recursoId: number, inventario: string, estado: EstadoRecurso): Promise<void> => {
@@ -541,7 +610,13 @@ export const dbService = {
       }
   },
 
-  devolverPrestamoPorInventario: async (inventario: string): Promise<{titulo: string, usuario: string, diasVencidos: number}> => {
+  devolverPrestamoPorInventario: async (inventario: string): Promise<{
+    titulo: string;
+    usuario: string;
+    usuarioId?: number;
+    diasVencidos: number;
+    otrosPrestamos: any[];
+  }> => {
       const prestamos = getList<Prestamo>(STORAGE_KEYS.PRESTAMOS);
       const prestamoActivo = prestamos.find(p => p.inventario_ejemplar === inventario && (p.estado === EstadoPrestamo.ACTIVO || p.estado === EstadoPrestamo.VENCIDO));
       
@@ -564,10 +639,15 @@ export const dbService = {
       const diffTime = hoy.getTime() - fechaEstimada.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
 
+      // Obtener los otros préstamos activos del usuario
+      const otrosPrestamos = usuario ? await dbService.listarPrestamosActivos(usuario.id) : [];
+
       return {
           titulo: recurso?.titulo || 'Desconocido',
           usuario: usuario ? `${usuario.apellido}, ${usuario.nombre}` : 'Desconocido',
-          diasVencidos: diffDays > 0 ? diffDays : 0
+          usuarioId: usuario?.id,
+          diasVencidos: diffDays > 0 ? diffDays : 0,
+          otrosPrestamos
       };
   },
 
@@ -730,6 +810,84 @@ export const dbService = {
     return [];
   },
 
+  obtenerTiposAutoridades: async (): Promise<Record<string, TipoResponsabilidad>> => {
+    const typesMap = getAuthorityTypesMap();
+    // Complementar con los tipos de las responsabilidades presentes en los recursos
+    const recursos = getList<Recurso>(STORAGE_KEYS.RECURSOS);
+    let changed = false;
+    recursos.forEach(r => {
+      if (r.responsabilidad_principal?.nombre) {
+        const key = r.responsabilidad_principal.nombre.toLowerCase().trim();
+        if (!typesMap[key]) {
+          typesMap[key] = r.responsabilidad_principal.tipo || 'AUTOR';
+          changed = true;
+        }
+      }
+      if (r.responsabilidad_secundaria) {
+        r.responsabilidad_secundaria.forEach(sec => {
+          if (sec.nombre) {
+            const key = sec.nombre.toLowerCase().trim();
+            if (!typesMap[key]) {
+              typesMap[key] = sec.tipo || 'AUTOR';
+              changed = true;
+            }
+          }
+        });
+      }
+    });
+    if (changed) {
+      saveAuthorityTypesMap(typesMap);
+    }
+    return typesMap;
+  },
+
+  actualizarTipoAutoridad: async (autor: string, nuevoTipo: TipoResponsabilidad): Promise<void> => {
+    const autorNormalizado = autor.toLowerCase().trim();
+    const typesMap = getAuthorityTypesMap();
+    typesMap[autorNormalizado] = nuevoTipo;
+    saveAuthorityTypesMap(typesMap);
+
+    // Actualizar también en los recursos del catálogo
+    const recursos = getList<Recurso>(STORAGE_KEYS.RECURSOS);
+    const recursosActualizados = recursos.map(r => {
+      let principalModificada = { ...r.responsabilidad_principal };
+      if (principalModificada.nombre && principalModificada.nombre.toLowerCase().trim() === autorNormalizado) {
+        principalModificada.tipo = nuevoTipo;
+      }
+
+      let secundariasModificadas = (r.responsabilidad_secundaria || []).map(sec => {
+        if (sec.nombre && sec.nombre.toLowerCase().trim() === autorNormalizado) {
+          return { ...sec, tipo: nuevoTipo };
+        }
+        return sec;
+      });
+
+      return {
+        ...r,
+        responsabilidad_principal: principalModificada,
+        responsabilidad_secundaria: secundariasModificadas
+      };
+    });
+    saveList(STORAGE_KEYS.RECURSOS, recursosActualizados);
+  },
+
+  agregarAutoridad: async (autor: string, tipo: TipoResponsabilidad = 'AUTOR'): Promise<void> => {
+    const trimmed = autor.trim();
+    if (!trimmed) return;
+    const norm = trimmed.toLowerCase();
+
+    const autoridades = await dbService.listarAutoridades();
+    const existe = autoridades.some(a => a.toLowerCase().trim() === norm);
+    if (!existe) {
+      const nuevas = [...autoridades, trimmed].sort((a, b) => a.localeCompare(b, 'es'));
+      saveList(STORAGE_KEYS.AUTORIDADES, nuevas);
+    }
+
+    const typesMap = getAuthorityTypesMap();
+    typesMap[norm] = tipo;
+    saveAuthorityTypesMap(typesMap);
+  },
+
   eliminarAutoridad: async (autor: string): Promise<void> => {
     const autorNormalizado = autor.toLowerCase().trim();
     
@@ -737,6 +895,11 @@ export const dbService = {
     const autoridades = await dbService.listarAutoridades();
     const nuevasAutoridades = autoridades.filter(a => a.toLowerCase().trim() !== autorNormalizado);
     saveList(STORAGE_KEYS.AUTORIDADES, nuevasAutoridades);
+
+    // Eliminar también del mapa de tipos
+    const typesMap = getAuthorityTypesMap();
+    delete typesMap[autorNormalizado];
+    saveAuthorityTypesMap(typesMap);
 
     // 2. Borrar o limpiar del catálogo bibliográfico
     const recursos = getList<Recurso>(STORAGE_KEYS.RECURSOS);
@@ -760,9 +923,66 @@ export const dbService = {
     saveList(STORAGE_KEYS.RECURSOS, recursosActualizados);
   },
 
-  actualizarAutoridad: async (autorAnterior: string, nuevoAutor: string): Promise<void> => {
+  depurarAutoridadesHuerfanas: async (): Promise<string[]> => {
+    const recursos = getList<Recurso>(STORAGE_KEYS.RECURSOS);
+    const nombresUsados = new Set<string>();
+
+    recursos.forEach(r => {
+      if (r.responsabilidad_principal?.nombre) {
+        const n = r.responsabilidad_principal.nombre.trim();
+        if (n) nombresUsados.add(n.toLowerCase());
+      }
+      if (r.responsabilidad_secundaria && Array.isArray(r.responsabilidad_secundaria)) {
+        r.responsabilidad_secundaria.forEach(sec => {
+          if (sec && sec.nombre) {
+            const n = sec.nombre.trim();
+            if (n) nombresUsados.add(n.toLowerCase());
+          }
+        });
+      }
+    });
+
+    const rawData = localStorage.getItem(STORAGE_KEYS.AUTORIDADES);
+    let autoridades: string[] = [];
+    if (rawData) {
+      try {
+        const parsed = JSON.parse(rawData);
+        if (Array.isArray(parsed)) {
+          autoridades = parsed.map((item: any) => typeof item === 'string' ? item.trim() : (item?.nombre || '').trim()).filter(Boolean);
+        }
+      } catch (e) {
+        console.error("Error al leer autoridades para depuración:", e);
+      }
+    } else {
+      autoridades = await dbService.listarAutoridades();
+    }
+
+    const autoridadesActivas = Array.from(new Set(
+      autoridades.filter(a => nombresUsados.has(a.toLowerCase().trim()))
+    )).sort((a, b) => a.localeCompare(b, 'es'));
+
+    saveList(STORAGE_KEYS.AUTORIDADES, autoridadesActivas);
+
+    // Limpiar tipos de autoridades obsoletas que ya no figuran en ningún recurso
+    const typesMap = getAuthorityTypesMap();
+    let typesChanged = false;
+    Object.keys(typesMap).forEach(key => {
+      if (!nombresUsados.has(key.toLowerCase().trim())) {
+        delete typesMap[key];
+        typesChanged = true;
+      }
+    });
+    if (typesChanged) {
+      saveAuthorityTypesMap(typesMap);
+    }
+
+    return autoridadesActivas;
+  },
+
+  actualizarAutoridad: async (autorAnterior: string, nuevoAutor: string, nuevoTipo?: TipoResponsabilidad): Promise<void> => {
     const anteriorNormalizado = autorAnterior.toLowerCase().trim();
     const nuevoTrimmed = nuevoAutor.trim();
+    const nuevoNormalizado = nuevoTrimmed.toLowerCase();
     if (!nuevoTrimmed) return;
 
     // 1. Reemplazar en la lista global de autoridades
@@ -776,18 +996,33 @@ export const dbService = {
     const autoridadesUnicas = Array.from(new Set(nuevasAutoridades.map(a => a.trim()))).sort((a, b) => a.localeCompare(b, 'es'));
     saveList(STORAGE_KEYS.AUTORIDADES, autoridadesUnicas);
 
+    // Actualizar mapa de tipos
+    const typesMap = getAuthorityTypesMap();
+    const tipoAnterior = typesMap[anteriorNormalizado] || 'AUTOR';
+    const tipoFinal = nuevoTipo || tipoAnterior;
+    delete typesMap[anteriorNormalizado];
+    typesMap[nuevoNormalizado] = tipoFinal;
+    saveAuthorityTypesMap(typesMap);
+
     // 2. Reemplazar en todos los recursos del catálogo
     const recursos = getList<Recurso>(STORAGE_KEYS.RECURSOS);
     const recursosActualizados = recursos.map(r => {
       let principalModificada = { ...r.responsabilidad_principal };
       if (principalModificada.nombre && principalModificada.nombre.toLowerCase().trim() === anteriorNormalizado) {
         principalModificada.nombre = nuevoTrimmed;
+        if (nuevoTipo) {
+          principalModificada.tipo = nuevoTipo;
+        }
       }
 
       let secundariasModificadas = r.responsabilidad_secundaria || [];
       secundariasModificadas = secundariasModificadas.map(sec => {
         if (sec.nombre && sec.nombre.toLowerCase().trim() === anteriorNormalizado) {
-          return { ...sec, nombre: nuevoTrimmed };
+          return {
+            ...sec,
+            nombre: nuevoTrimmed,
+            ...(nuevoTipo ? { tipo: nuevoTipo } : {})
+          };
         }
         return sec;
       });

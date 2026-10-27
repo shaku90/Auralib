@@ -54,6 +54,8 @@ const Settings: React.FC = () => {
     errors: string[];
   } | null>(null);
 
+  const [isExportingMarcXml, setIsExportingMarcXml] = useState(false);
+
   useEffect(() => {
     dbService.getConfig().then(data => {
       setConfig({
@@ -560,6 +562,49 @@ const Settings: React.FC = () => {
     }
   };
 
+  const exportarCatalogoMarcXml = async () => {
+    try {
+      setIsExportingMarcXml(true);
+      const recursos = await dbService.listarRecursos();
+      
+      if (!recursos || recursos.length === 0) {
+        setIsExportingMarcXml(false);
+        setAlertModal({
+          isOpen: true,
+          title: 'Catálogo vacío',
+          message: 'No hay registros bibliográficos en el catálogo para exportar.'
+        });
+        return;
+      }
+
+      const marcXmlContent = marcService.exportarMarcXml(recursos, config.nombre_biblioteca);
+      const filename = `CATALOGO_AURALIB_MARCXML_${new Date().toISOString().slice(0, 10)}.xml`;
+      const blob = new Blob([marcXmlContent], { type: 'application/marcxml+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setIsExportingMarcXml(false);
+      setAlertModal({
+        isOpen: true,
+        title: 'Exportación a MARCXML completada',
+        message: `Se han exportado con éxito ${recursos.length} registros bibliográficos en formato MARCXML estándar de la Biblioteca del Congreso (MARC21).\n\nEl archivo generado es 100% compatible con el cosechador VuFind, Koha y redes de catálogos colectivos.`
+      });
+    } catch (err: any) {
+      setIsExportingMarcXml(false);
+      setAlertModal({
+        isOpen: true,
+        title: 'Error al exportar MARCXML',
+        message: err.message || 'Ocurrió un error al generar el archivo MARCXML.'
+      });
+    }
+  };
+
   return (
     <div className="p-6 max-w-3xl mx-auto pb-20 space-y-6">
       <h2 className="text-2xl font-bold text-gray-800 tracking-tight">Configuración del sistema</h2>
@@ -796,6 +841,32 @@ const Settings: React.FC = () => {
                       🖨️ Exportar Inventario General
                   </button>
               </div>
+
+              <div className="pt-6 border-t border-gray-200">
+                  <h4 className="font-semibold text-base text-gray-800 mb-1">Catálogo en MARCXML</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                      Exporta el catálogo bibliográfico completo en formato estándar <strong>MARCXML</strong>, listo para ser integrado y cosechado por el indexador <strong>VuFind</strong>, Koha o redes de catálogos colectivos.
+                  </p>
+                  <button 
+                      onClick={exportarCatalogoMarcXml}
+                      disabled={isExportingMarcXml}
+                      className="w-full bg-indigo-50 border border-indigo-200 text-indigo-700 py-3 rounded-lg hover:bg-indigo-100 flex items-center justify-center gap-2 font-medium transition disabled:opacity-50"
+                      id="btn-exportar-marcxml"
+                      title="Exportar catálogo en formato MARCXML para VuFind y catálogos colectivos"
+                  >
+                      {isExportingMarcXml ? (
+                          <>
+                              <span className="animate-spin text-lg">⏳</span>
+                              <span>Generando archivo XML...</span>
+                          </>
+                      ) : (
+                          <>
+                              <span>🌐</span>
+                              <span>Exportar Catálogo a XML</span>
+                          </>
+                      )}
+                  </button>
+              </div>
           </div>
       </div>
 
@@ -941,7 +1012,7 @@ const Settings: React.FC = () => {
 
       {/* Acerca de / Créditos de desarrollo */}
       <div className="mt-8 text-center text-xs text-gray-500 border-t border-gray-300 pt-6">
-        <p className="font-semibold text-gray-700 text-sm">Auralib v1.1.0</p>
+        <p className="font-semibold text-gray-700 text-sm">Auralib v1.2.0</p>
         <p className="mt-1">Sistema de Gestión Bibliotecaria</p>
       </div>
 

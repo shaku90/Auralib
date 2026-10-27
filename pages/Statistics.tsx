@@ -389,11 +389,11 @@ const Statistics: React.FC = () => {
         {/* Fila 1: KPI Préstamos Totales + Tendencias de Préstamo */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 1. PRÉSTAMOS TOTALES */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between hover:shadow transition duration-200">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col hover:shadow transition duration-200">
             <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 border-b border-gray-200 pb-2 flex items-center justify-between">
               <span>🔄 Préstamos totales</span>
             </h4>
-            <div className="mt-2">
+            <div className="flex-1 flex flex-col justify-center py-2">
               <p className="text-5xl font-extrabold text-blue-950">
                 <AnimatedCounter value={totalPrestamos} />
               </p>
@@ -620,11 +620,11 @@ const Statistics: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* 1. ANTIGÜEDAD DE LA COLECCIÓN */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col justify-between hover:shadow transition duration-200">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col hover:shadow transition duration-200">
             <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 border-b border-gray-200 pb-2 flex items-center justify-between">
               <span>📅 Antigüedad de la colección</span>
             </h4>
-            <div className="mt-2">
+            <div className="flex-1 flex flex-col justify-center py-2">
               <p className="text-5xl font-extrabold text-emerald-700">
                 {edadPromedio !== null ? `${edadPromedio} años` : 'S/D'}
               </p>

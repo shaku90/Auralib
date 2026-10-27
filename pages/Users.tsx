@@ -34,10 +34,19 @@ const Users: React.FC = () => {
   const [selectedUserForHistory, setSelectedUserForHistory] = useState<Usuario | null>(null);
   const [userHistory, setUserHistory] = useState<Prestamo[]>([]);
 
-  // Buscador
+  // Buscador y Paginación (30 por vista, del más reciente al más antiguo)
   const [searchTerm, setSearchTerm] = useState('');
+  const [visibleCount, setVisibleCount] = useState(30);
 
-  const filteredUsuarios = usuarios.filter(u => {
+  // Reiniciar la cantidad visible al buscar
+  useEffect(() => {
+    setVisibleCount(30);
+  }, [searchTerm]);
+
+  // Ordenar desde el más nuevo hasta el primero que se asoció (id descendente)
+  const sortedUsuarios = [...usuarios].sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
+
+  const filteredUsuarios = sortedUsuarios.filter(u => {
     const query = normalizarTexto(searchTerm).trim();
     if (!query) return true;
     const fullNameStr = normalizarTexto(`${u.apellido} ${u.nombre}`);
@@ -45,6 +54,9 @@ const Users: React.FC = () => {
     const dniStr = normalizarTexto(u.dni);
     return fullNameStr.includes(query) || nameFullStr.includes(query) || dniStr.includes(query);
   });
+
+  const displayedUsuarios = filteredUsuarios.slice(0, visibleCount);
+  const remainingCount = filteredUsuarios.length - displayedUsuarios.length;
 
   useEffect(() => {
     loadUsers();
@@ -176,11 +188,13 @@ const Users: React.FC = () => {
             {filteredUsuarios.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-6 py-10 text-center text-sm text-gray-500 italic">
-                  No se encontraron usuarios que coincidan con la búsqueda.
+                  {searchTerm 
+                    ? 'No se encontraron usuarios que coincidan con la búsqueda.' 
+                    : 'No hay usuarios registrados en el sistema.'}
                 </td>
               </tr>
             ) : (
-              filteredUsuarios.map((u) => (
+              displayedUsuarios.map((u) => (
               <tr key={u.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   <div className="flex items-center gap-3">
@@ -237,6 +251,30 @@ const Users: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {/* CONTROL DE PAGINACIÓN / MOSTRAR MÁS RESULTADOS */}
+      {filteredUsuarios.length > 0 && (
+        <div className="mt-8 flex flex-col items-center justify-center space-y-4 pb-8">
+          <div className="w-full max-w-xs bg-gray-200 rounded-full h-1.5 overflow-hidden">
+            <div 
+              className="bg-blue-600 h-1.5 rounded-full transition-all duration-300" 
+              style={{ width: `${(Math.min(visibleCount, filteredUsuarios.length) / filteredUsuarios.length) * 100}%` }}
+            />
+          </div>
+          <p className="text-sm text-gray-500 font-sans text-center">
+            Mostrando <strong className="text-gray-700">{displayedUsuarios.length}</strong> de <strong className="text-gray-700">{filteredUsuarios.length}</strong> usuarios{searchTerm ? ' encontrados' : ' registrados'}.
+          </p>
+          {visibleCount < filteredUsuarios.length && (
+            <button
+              onClick={() => setVisibleCount(prev => prev + 30)}
+              className="px-6 py-2.5 text-sm font-semibold text-blue-700 bg-white border border-blue-300 hover:bg-blue-50 hover:border-blue-400 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-100 transition duration-150 flex items-center gap-2 cursor-pointer"
+            >
+              <span>Mostrar más resultados</span>
+              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">+{Math.min(30, remainingCount)}</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* MODAL DE CREACIÓN / EDICIÓN */}
       {isModalOpen && (

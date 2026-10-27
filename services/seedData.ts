@@ -1,6 +1,6 @@
 import { Recurso, Usuario, Prestamo, EstadoRecurso, EstadoPrestamo, RolUsuario } from '../types';
 
-export const CURRENT_SEED_VERSION = 'v16';
+export const CURRENT_SEED_VERSION = 'v17';
 
 export const RECURSOS_SEMILLA: Recurso[] = [
   {
@@ -9,7 +9,7 @@ export const RECURSOS_SEMILLA: Recurso[] = [
     titulo: 'República Argentina : mapa político escolar',
     mencion_responsabilidad: 'Instituto Geográfico Nacional',
     responsabilidad_principal: { tipo: 'CORPORATIVA', nombre: 'Argentina. Instituto Geográfico Nacional' },
-    responsabilidad_secundaria: [],
+    responsabilidad_secundaria: [{ tipo: 'GEOGRAFICA', nombre: 'Argentina' }],
     lugar_publicacion: ['Buenos Aires'],
     editor: ['IGN'],
     fecha: ['2022'],

@@ -1,8 +1,8 @@
-import { Recurso, Ejemplar, EstadoRecurso, Responsabilidad } from '../types';
+import { Recurso, Ejemplar, EstadoRecurso, Responsabilidad, TipoResponsabilidad } from '../types';
 import { dbService } from './dbService';
-import { cleanPunctuation, esAutorDuplicado } from '../utils/textUtils';
+import { cleanPunctuation, esAutorDuplicado, cleanAuthorDate } from '../utils/textUtils';
 
-export { cleanPunctuation, esAutorDuplicado };
+export { cleanPunctuation, esAutorDuplicado, cleanAuthorDate };
 
 export function decodeUTF8(bytes: Uint8Array): string {
   const decoder = new TextDecoder('utf-8', { fatal: false });
@@ -380,6 +380,16 @@ export const marcService = {
           }
         }
         
+        // Título Uniforme (MARC 240 o 130) -> titulo_uniforme
+        let titulo_uniforme: string | undefined = undefined;
+        if (fields['240'] && fields['240'][0]) {
+          const sub = parseSubfields(fields['240'][0]);
+          titulo_uniforme = cleanPunctuation(sub['a']);
+        } else if (fields['130'] && fields['130'][0]) {
+          const sub = parseSubfields(fields['130'][0]);
+          titulo_uniforme = cleanPunctuation(sub['a']);
+        }
+        
         // Omitir o asignar título por defecto si falta el campo 245
         if (!titulo) {
           if (titulo_clave) {
@@ -408,11 +418,17 @@ export const marcService = {
         if (fields['100'] && fields['100'][0]) {
           const sub = parseSubfields(fields['100'][0]);
           const name = cleanPunctuation(sub['a']);
-          const dates = cleanPunctuation(sub['d']);
+          const fuller = cleanPunctuation(sub['q']);
+          const dates = cleanAuthorDate(sub['d']);
+          const relator = cleanPunctuation(sub['e']);
           if (name) {
+            let fullName = name;
+            if (fuller) fullName += ` ${fuller.startsWith('(') ? fuller : `(${fuller})`}`;
+            if (dates) fullName += `, ${dates}`;
+            if (relator) fullName += `, ${relator}`;
             responsabilidad_principal = {
               tipo: 'AUTOR',
-              nombre: dates ? `${name}, ${dates}` : name
+              nombre: fullName
             };
           }
         } 
@@ -420,10 +436,14 @@ export const marcService = {
         else if (fields['110'] && fields['110'][0]) {
           const sub = parseSubfields(fields['110'][0]);
           const name = cleanPunctuation(sub['a']);
+          const subUnit = cleanPunctuation(sub['b']);
+          const relator = cleanPunctuation(sub['e']);
           if (name) {
+            let fullName = subUnit ? `${name}. ${subUnit}` : name;
+            if (relator) fullName += `, ${relator}`;
             responsabilidad_principal = {
               tipo: 'CORPORATIVA',
-              nombre: name
+              nombre: fullName
             };
           }
         }
@@ -431,10 +451,23 @@ export const marcService = {
         else if (fields['111'] && fields['111'][0]) {
           const sub = parseSubfields(fields['111'][0]);
           const name = cleanPunctuation(sub['a']);
+          const num = cleanPunctuation(sub['n']);
+          const date = cleanPunctuation(sub['d']);
+          const place = cleanPunctuation(sub['c']);
+          const relator = cleanPunctuation(sub['e']);
           if (name) {
+            let fullName = name;
+            const qualifiers: string[] = [];
+            if (num) qualifiers.push(num);
+            if (date) qualifiers.push(date);
+            if (place) qualifiers.push(place);
+            if (qualifiers.length > 0) {
+              fullName += ` (${qualifiers.join(' : ')})`;
+            }
+            if (relator) fullName += `, ${relator}`;
             responsabilidad_principal = {
-              tipo: 'GEOGRAFICA',
-              nombre: name
+              tipo: 'CORPORATIVA',
+              nombre: fullName
             };
           }
         }
@@ -444,11 +477,17 @@ export const marcService = {
           for (const rawVal of fields['700']) {
             const sub = parseSubfields(rawVal);
             const name = cleanPunctuation(sub['a']);
-            const dates = cleanPunctuation(sub['d']);
+            const fuller = cleanPunctuation(sub['q']);
+            const dates = cleanAuthorDate(sub['d']);
+            const relator = cleanPunctuation(sub['e']);
             if (name) {
+              let fullName = name;
+              if (fuller) fullName += ` ${fuller.startsWith('(') ? fuller : `(${fuller})`}`;
+              if (dates) fullName += `, ${dates}`;
+              if (relator) fullName += `, ${relator}`;
               agregarSecundarioUnico({
                 tipo: 'AUTOR',
-                nombre: dates ? `${name}, ${dates}` : name
+                nombre: fullName
               });
             }
           }
@@ -458,10 +497,14 @@ export const marcService = {
           for (const rawVal of fields['710']) {
             const sub = parseSubfields(rawVal);
             const name = cleanPunctuation(sub['a']);
+            const subUnit = cleanPunctuation(sub['b']);
+            const relator = cleanPunctuation(sub['e']);
             if (name) {
+              let fullName = subUnit ? `${name}. ${subUnit}` : name;
+              if (relator) fullName += `, ${relator}`;
               agregarSecundarioUnico({
                 tipo: 'CORPORATIVA',
-                nombre: name
+                nombre: fullName
               });
             }
           }
@@ -471,10 +514,23 @@ export const marcService = {
           for (const rawVal of fields['711']) {
             const sub = parseSubfields(rawVal);
             const name = cleanPunctuation(sub['a']);
+            const num = cleanPunctuation(sub['n']);
+            const date = cleanPunctuation(sub['d']);
+            const place = cleanPunctuation(sub['c']);
+            const relator = cleanPunctuation(sub['e']);
             if (name) {
+              let fullName = name;
+              const qualifiers: string[] = [];
+              if (num) qualifiers.push(num);
+              if (date) qualifiers.push(date);
+              if (place) qualifiers.push(place);
+              if (qualifiers.length > 0) {
+                fullName += ` (${qualifiers.join(' : ')})`;
+              }
+              if (relator) fullName += `, ${relator}`;
               agregarSecundarioUnico({
-                tipo: 'GEOGRAFICA',
-                nombre: name
+                tipo: 'CORPORATIVA',
+                nombre: fullName
               });
             }
           }
@@ -854,6 +910,7 @@ export const marcService = {
           titulo,
           mencion_responsabilidad,
           variante_titulo,
+          titulo_uniforme,
           titulo_clave,
           responsabilidad_principal,
           responsabilidad_secundaria,
@@ -1115,7 +1172,7 @@ export const marcService = {
           if (fields['100'] && fields['100'][0]) {
             const sub100 = parseSubfields(fields['100'][0]);
             const name = cleanPunctuation(sub100['a']);
-            const dates = cleanPunctuation(sub100['d']);
+            const dates = cleanAuthorDate(sub100['d']);
             if (name) autorIso = dates ? `${name}, ${dates}` : name;
           } else if (fields['110'] && fields['110'][0]) {
             autorIso = cleanPunctuation(parseSubfields(fields['110'][0])['a']) || '';
@@ -1360,6 +1417,18 @@ export const marcService = {
           }
         }
         
+        // Título Uniforme (MARC 240 o 130) -> titulo_uniforme
+        let titulo_uniforme: string | undefined = undefined;
+        if (fields['240'] && fields['240'][0]) {
+          const sub240 = parseMrcSubfields(fields['240'][0]);
+          const a = sub240['a']?.[0];
+          if (a) titulo_uniforme = cleanPunctuation(a);
+        } else if (fields['130'] && fields['130'][0]) {
+          const sub130 = parseMrcSubfields(fields['130'][0]);
+          const a = sub130['a']?.[0];
+          if (a) titulo_uniforme = cleanPunctuation(a);
+        }
+        
         // Omitir o asignar título por defecto si no existe
         if (!titulo) {
           if (titulo_clave) {
@@ -1388,34 +1457,57 @@ export const marcService = {
         // Tag 100: Personal Author
         if (fields['100'] && fields['100'][0]) {
           const sub = parseMrcSubfields(fields['100'][0]);
-          const name = sub['a']?.[0];
-          const dates = sub['d']?.[0];
+          const name = cleanPunctuation(sub['a']?.[0]);
+          const fuller = cleanPunctuation(sub['q']?.[0]);
+          const dates = cleanAuthorDate(sub['d']?.[0]);
+          const relator = cleanPunctuation(sub['e']?.[0]);
           if (name) {
+            let fullName = name;
+            if (fuller) fullName += ` ${fuller.startsWith('(') ? fuller : `(${fuller})`}`;
+            if (dates) fullName += `, ${dates}`;
+            if (relator) fullName += `, ${relator}`;
             responsabilidad_principal = {
               tipo: 'AUTOR',
-              nombre: dates ? `${cleanPunctuation(name)}, ${cleanPunctuation(dates)}` : (cleanPunctuation(name) || '')
+              nombre: fullName
             };
           }
         } 
         // Tag 110: Corporate Author
         else if (fields['110'] && fields['110'][0]) {
           const sub = parseMrcSubfields(fields['110'][0]);
-          const name = sub['a']?.[0];
+          const name = cleanPunctuation(sub['a']?.[0]);
+          const subUnit = cleanPunctuation(sub['b']?.[0]);
+          const relator = cleanPunctuation(sub['e']?.[0]);
           if (name) {
+            let fullName = subUnit ? `${name}. ${subUnit}` : name;
+            if (relator) fullName += `, ${relator}`;
             responsabilidad_principal = {
               tipo: 'CORPORATIVA',
-              nombre: cleanPunctuation(name) || ''
+              nombre: fullName
             };
           }
         }
         // Tag 111: Geographic or Conference
         else if (fields['111'] && fields['111'][0]) {
           const sub = parseMrcSubfields(fields['111'][0]);
-          const name = sub['a']?.[0];
+          const name = cleanPunctuation(sub['a']?.[0]);
+          const num = cleanPunctuation(sub['n']?.[0]);
+          const date = cleanPunctuation(sub['d']?.[0]);
+          const place = cleanPunctuation(sub['c']?.[0]);
+          const relator = cleanPunctuation(sub['e']?.[0]);
           if (name) {
+            let fullName = name;
+            const qualifiers: string[] = [];
+            if (num) qualifiers.push(num);
+            if (date) qualifiers.push(date);
+            if (place) qualifiers.push(place);
+            if (qualifiers.length > 0) {
+              fullName += ` (${qualifiers.join(' : ')})`;
+            }
+            if (relator) fullName += `, ${relator}`;
             responsabilidad_principal = {
-              tipo: 'GEOGRAFICA',
-              nombre: cleanPunctuation(name) || ''
+              tipo: 'CORPORATIVA',
+              nombre: fullName
             };
           }
         }
@@ -1424,12 +1516,18 @@ export const marcService = {
         if (fields['700']) {
           for (const rawVal of fields['700']) {
             const sub = parseMrcSubfields(rawVal);
-            const name = sub['a']?.[0];
-            const dates = sub['d']?.[0];
+            const name = cleanPunctuation(sub['a']?.[0]);
+            const fuller = cleanPunctuation(sub['q']?.[0]);
+            const dates = cleanAuthorDate(sub['d']?.[0]);
+            const relator = cleanPunctuation(sub['e']?.[0]);
             if (name) {
+              let fullName = name;
+              if (fuller) fullName += ` ${fuller.startsWith('(') ? fuller : `(${fuller})`}`;
+              if (dates) fullName += `, ${dates}`;
+              if (relator) fullName += `, ${relator}`;
               agregarSecundarioUnico({
                 tipo: 'AUTOR',
-                nombre: dates ? `${cleanPunctuation(name)}, ${cleanPunctuation(dates)}` : (cleanPunctuation(name) || '')
+                nombre: fullName
               });
             }
           }
@@ -1438,11 +1536,15 @@ export const marcService = {
         if (fields['710']) {
           for (const rawVal of fields['710']) {
             const sub = parseMrcSubfields(rawVal);
-            const name = sub['a']?.[0];
+            const name = cleanPunctuation(sub['a']?.[0]);
+            const subUnit = cleanPunctuation(sub['b']?.[0]);
+            const relator = cleanPunctuation(sub['e']?.[0]);
             if (name) {
+              let fullName = subUnit ? `${name}. ${subUnit}` : name;
+              if (relator) fullName += `, ${relator}`;
               agregarSecundarioUnico({
                 tipo: 'CORPORATIVA',
-                nombre: cleanPunctuation(name) || ''
+                nombre: fullName
               });
             }
           }
@@ -1451,11 +1553,24 @@ export const marcService = {
         if (fields['711']) {
           for (const rawVal of fields['711']) {
             const sub = parseMrcSubfields(rawVal);
-            const name = sub['a']?.[0];
+            const name = cleanPunctuation(sub['a']?.[0]);
+            const num = cleanPunctuation(sub['n']?.[0]);
+            const date = cleanPunctuation(sub['d']?.[0]);
+            const place = cleanPunctuation(sub['c']?.[0]);
+            const relator = cleanPunctuation(sub['e']?.[0]);
             if (name) {
+              let fullName = name;
+              const qualifiers: string[] = [];
+              if (num) qualifiers.push(num);
+              if (date) qualifiers.push(date);
+              if (place) qualifiers.push(place);
+              if (qualifiers.length > 0) {
+                fullName += ` (${qualifiers.join(' : ')})`;
+              }
+              if (relator) fullName += `, ${relator}`;
               agregarSecundarioUnico({
-                tipo: 'GEOGRAFICA',
-                nombre: cleanPunctuation(name) || ''
+                tipo: 'CORPORATIVA',
+                nombre: fullName
               });
             }
           }
@@ -1825,6 +1940,7 @@ export const marcService = {
           titulo,
           mencion_responsabilidad,
           variante_titulo,
+          titulo_uniforme,
           titulo_clave,
           responsabilidad_principal,
           responsabilidad_secundaria,
@@ -1896,5 +2012,690 @@ export const marcService = {
       totalRecordsFound: recordsCount,
       errors
     };
+  },
+
+  /**
+   * Genera y exporta el catálogo bibliográfico completo en formato MARCXML estándar
+   * de la Biblioteca del Congreso de EE.UU. (MARC21), compatible con VuFind, Koha y catálogos colectivos.
+   */
+  exportarMarcXml: (recursos: Recurso[], nombreBiblioteca?: string): string => {
+    return generarMarcXml(recursos, nombreBiblioteca);
   }
 };
+
+// ============================================================================
+// Funciones de Trayecto Inverso para Responsabilidades MARC 21 (100, 110, 111, 700, 710, 711)
+// ============================================================================
+
+export interface DecomposedPerson {
+  name: string;
+  dates?: string;
+  relator?: string;
+  fullerForm?: string;
+  ind1: string;
+}
+
+export interface DecomposedCorporateOrMeeting {
+  isMeeting: boolean;
+  tag: string;
+  ind1: string;
+  name: string;
+  subordinates: string[];
+  meetingNumber?: string;
+  meetingDate?: string;
+  meetingPlace?: string;
+  relator?: string;
+}
+
+const RELATOR_TERMS = [
+  'traductor', 'traductora', 'traducción', 'trad.', 'trad', 'tr.', 'tr',
+  'ilustrador', 'ilustradora', 'ilustraciones', 'il.', 'il', 'ilus.', 'ilus',
+  'editor', 'editora', 'edición', 'ed.', 'ed',
+  'compilador', 'compiladora', 'compilación', 'comp.', 'comp',
+  'coordinador', 'coordinadora', 'coordinación', 'coord.', 'coord',
+  'director', 'directora', 'dirección', 'dir.', 'dir',
+  'prologuista', 'prólogo', 'prol.', 'prol', 'pról.', 'pról',
+  'fotógrafo', 'fotógrafa', 'fotografías', 'fot.', 'fot',
+  'adaptador', 'adaptadora', 'adaptación', 'adapt.', 'adapt',
+  'colaborador', 'colaboradora', 'colaboración', 'colab.', 'colab',
+  'comentador', 'comentadora', 'comentarios', 'coment.', 'coment',
+  'organizador', 'organizadora', 'organización', 'org.', 'org',
+  'seleccionador', 'seleccionadora', 'selección', 'sel.', 'sel',
+  'autor', 'autora', 'autores',
+  'compositor', 'compositora', 'intérprete', 'dibujante', 'guionista',
+  'relator', 'rel.',
+  'translator', 'trans.', 'illustrator', 'ill.', 'compiler', 'coordinator',
+  'director', 'author'
+];
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const relatorPattern = RELATOR_TERMS.map(escapeRegExp).join('|');
+const RELATOR_END_REGEX = new RegExp(`(?:,\\s*|\\s*[\\(\\[]\\s*)(${relatorPattern})\\s*[\\)\\]]?\\s*$`, 'i');
+
+const DATE_PAREN_REGEX = /\s*\((((?:ca\.|c\.|h\.|m\.|n\.|fl\.|aprox\.)\s*)?\d{1,4}(?:\s*-\s*(?:\d{1,4}|\?|fl\.)?)?(?:\s*(?:a\.C\.|d\.C\.|a\.\s*C\.|d\.\s*C\.|BC|AD))?|(?:ca\.\s*)?(?:s\.|siglo)\s*[IVXLCDM]+(?:\s*a\.C\.)?)\)\s*/i;
+const DATE_COMMA_REGEX = /,\s*(((?:ca\.|c\.|h\.|m\.|n\.|fl\.|aprox\.)\s*)?\d{1,4}(?:\s*-\s*(?:\d{1,4}|\?|fl\.)?)?(?:\s*(?:a\.C\.|d\.C\.|a\.\s*C\.|d\.\s*C\.|BC|AD))?|(?:ca\.\s*)?(?:s\.|siglo)\s*[IVXLCDM]+(?:\s*a\.C\.)?)(?=[,\s\)]|$)/i;
+
+const FULLER_FORM_REGEX = /\(([A-ZÁÉÍÓÚÑ][a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\.\s]+)\)/;
+
+/**
+ * Descompone una cadena de autor personal en los subcampos estándar MARC21:
+ * $a - Nombre de persona (ej: Borges, Jorge Luis)
+ * $q - Forma más completa del nombre (ej: (John Ronald Reuel))
+ * $d - Fechas asociadas (ej: 1899-1986, 1947-)
+ * $e - Término de relación o función (ej: tr., trad., il., ed., comp.)
+ */
+export function decomposePersonalAuthor(raw: string): DecomposedPerson {
+  let str = (raw || '').trim();
+  let relator: string | undefined = undefined;
+  let dates: string | undefined = undefined;
+  let fullerForm: string | undefined = undefined;
+
+  // 1. Extraer función / relator si está al final o entre corchetes/paréntesis
+  const relMatch = str.match(RELATOR_END_REGEX);
+  if (relMatch) {
+    relator = relMatch[1].trim();
+    str = str.substring(0, relMatch.index).trim();
+  }
+
+  // 2. Extraer fechas entre paréntesis
+  const dateParenMatch = str.match(DATE_PAREN_REGEX);
+  if (dateParenMatch) {
+    dates = cleanAuthorDate(dateParenMatch[1]);
+    str = (str.substring(0, dateParenMatch.index) + ' ' + str.substring(dateParenMatch.index! + dateParenMatch[0].length)).trim();
+  } else {
+    // Extraer fechas precedidas por coma
+    const dateCommaMatch = str.match(DATE_COMMA_REGEX);
+    if (dateCommaMatch) {
+      dates = cleanAuthorDate(dateCommaMatch[1]);
+      str = (str.substring(0, dateCommaMatch.index) + str.substring(dateCommaMatch.index! + dateCommaMatch[0].length)).trim();
+    }
+  }
+
+  // 3. Extraer forma más completa del nombre en paréntesis (ej: Tolkien, J. R. R. (John Ronald Reuel))
+  const fullMatch = str.match(FULLER_FORM_REGEX);
+  if (fullMatch) {
+    const candidate = fullMatch[1].trim();
+    if (!RELATOR_TERMS.includes(candidate.toLowerCase()) && !/^\d+$/.test(candidate) && candidate.includes(' ')) {
+      fullerForm = `(${candidate})`;
+      str = (str.substring(0, fullMatch.index) + ' ' + str.substring(fullMatch.index! + fullMatch[0].length)).trim();
+    }
+  }
+
+  // 4. Limpiar nombre resultante
+  let cleanName = str.replace(/^[\s\/\,;:._\-]+/, '').replace(/[\s\/\,;:_\-]+$/, '').trim();
+  cleanName = cleanPunctuation(cleanName) || cleanName;
+
+  // Indicador 1: '1' si se entra por apellido (contiene coma), '0' si es nombre directo o de pila
+  const ind1 = cleanName.includes(',') ? '1' : '0';
+
+  return {
+    name: cleanName,
+    dates,
+    relator,
+    fullerForm,
+    ind1
+  };
+}
+
+/**
+ * Descompone una cadena de entidad en entidad corporativa (110/710) o congreso/reunión (111/711):
+ * Para 110/710:
+ *   $a - Nombre de la entidad o jurisdicción
+ *   $b - Entidad subalterna o unidad subordinada (ej: Facultad de..., Secretaría de...)
+ *   $e - Término de relación
+ * Para 111/711:
+ *   $a - Nombre de la reunión / congreso
+ *   $n - Número de la reunión (ej: 3º)
+ *   $d - Fecha de la reunión (ej: 2004)
+ *   $c - Lugar de la reunión (ej: Rosario, Argentina)
+ *   $e - Término de relación
+ */
+export function decomposeCorporateOrMeeting(raw: string, isSecondary: boolean, tipo?: TipoResponsabilidad): DecomposedCorporateOrMeeting {
+  let str = (raw || '').trim();
+  let relator: string | undefined = undefined;
+
+  // 1. Extraer relator al final si existe (ej: ", ed.", "(coord.)")
+  const relMatch = str.match(RELATOR_END_REGEX);
+  if (relMatch) {
+    relator = relMatch[1].trim();
+    str = str.substring(0, relMatch.index).trim();
+  }
+
+  // 2. Detectar si es Reunión / Congreso (111 / 711)
+  const isMeeting = /^(congreso|jornadas?|simposio|simposium|conferencia|coloquio|encuentro|asamblea|seminario|taller|mesa redonda|foro|forum|meeting|conference|symposium|congress|reuni[oó]n|bienal|trienal)\b/i.test(str) ||
+    /\b(congreso|jornadas|simposio|conferencia|coloquio|encuentro|asamblea|seminario|meeting|conference|symposium)\s+(internacional|nacional|regional|latinoamericano|iberoamericano|mundial|anual)\b/i.test(str);
+
+  if (isMeeting) {
+    let meetingNumber: string | undefined = undefined;
+    let meetingDate: string | undefined = undefined;
+    let meetingPlace: string | undefined = undefined;
+
+    // Detectar si tiene sufijo estándar AACR2 / ISBD: (3º : 2004 : Rosario, Argentina) o (2004 : Rosario)
+    const parenMatch = str.match(/\s*\(([^)]+)\)\s*$/);
+    if (parenMatch && parenMatch[1].includes(':')) {
+      const parts = parenMatch[1].split(':').map(p => p.trim());
+      for (const part of parts) {
+        if (/^\d{4}$/.test(part)) {
+          meetingDate = part;
+        } else if (/^(\d+[ºª\.]*|[IVXLCDM]+)$/i.test(part)) {
+          meetingNumber = part;
+        } else if (part.length > 0) {
+          meetingPlace = part;
+        }
+      }
+      str = str.substring(0, parenMatch.index).trim();
+    }
+
+    const cleanName = cleanPunctuation(str) || str;
+    return {
+      isMeeting: true,
+      tag: isSecondary ? '711' : '111',
+      ind1: '2', // Orden directo
+      name: cleanName,
+      subordinates: [],
+      meetingNumber,
+      meetingDate,
+      meetingPlace,
+      relator
+    };
+  }
+
+  // 3. Entidad Corporativa / Subalterna (110 / 710)
+  // Indicador 1:
+  // 1: Nombre de jurisdicción (ej: Argentina, España, Provincia de..., o tipo GEOGRAFICA)
+  // 2: Nombre en orden directo (ej: Universidad de Buenos Aires, UNESCO)
+  let ind1 = '2';
+  if (tipo === 'GEOGRAFICA' || /^(Argentina|Chile|Brasil|Uruguay|Paraguay|Bolivia|Per[uú]|Colombia|Venezuela|Ecuador|M[eé]xico|Espa[nñ]a|Francia|Italia|Estados Unidos|Reino Unido)\b/i.test(str) || /\((Provincia|Rep[uú]blica|Estado|Ciudad|Dpto\.)\)/i.test(str)) {
+    ind1 = '1';
+  }
+
+  // Subordinadas: separar por ". " respetando siglas comerciales (S.A., S.R.L., Inc., etc.)
+  const rawParts = str.split(/\.\s+/);
+  const parts: string[] = [];
+  
+  for (let i = 0; i < rawParts.length; i++) {
+    const p = rawParts[i].trim();
+    if (!p) continue;
+    if (/^(S\.?A\.?|S\.?R\.?L\.?|Inc\.?|Ltd\.?|Ltda\.?|LLC)$/i.test(p) && parts.length > 0) {
+      parts[parts.length - 1] += `. ${p}`;
+    } else {
+      parts.push(p);
+    }
+  }
+
+  const mainName = cleanPunctuation(parts[0]) || parts[0] || str;
+  const subordinates = parts.slice(1).map(p => cleanPunctuation(p) || p).filter(Boolean);
+
+  return {
+    isMeeting: false,
+    tag: isSecondary ? '710' : '110',
+    ind1,
+    name: mainName,
+    subordinates,
+    relator
+  };
+}
+
+/**
+ * Convierte un arreglo de recursos bibliográficos de Auralib a MARCXML estándar (LC MARC21 slim).
+ * Genera el documento XML con líder, campos de control (001, 008), títulos con mención de responsabilidad (245 $c),
+ * autores principales y secundarios, publicación, descripción física, notas, materias y existencias/ejemplares (852).
+ */
+export function generarMarcXml(recursos: Recurso[], nombreBiblioteca?: string): string {
+  const escapeXml = (str: string | undefined | null): string => {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;')
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  };
+
+  const getLeader = (tipoMaterial?: string): string => {
+    let type = 'a'; // Material textual por defecto
+    let bibLevel = 'm'; // Monografía / ítem
+
+    switch (tipoMaterial) {
+      case 'Publicación seriada':
+        type = 'a';
+        bibLevel = 's';
+        break;
+      case 'Material cartográfico':
+        type = 'e';
+        break;
+      case 'Partituras':
+        type = 'c';
+        break;
+      case 'Audio':
+        type = 'j';
+        break;
+      case 'Video':
+        type = 'g';
+        break;
+      case 'Material gráfico':
+        type = 'k';
+        break;
+      case 'Objetos':
+        type = 'r';
+        break;
+      case 'Manuscrito':
+        type = 't';
+        break;
+      case 'Libro':
+      default:
+        type = 'a';
+        bibLevel = 'm';
+        break;
+    }
+
+    return `00000n${type}${bibLevel} a2200000 a 4500`;
+  };
+
+  const getField008 = (recurso: Recurso): string => {
+    const now = new Date();
+    const yy = String(now.getFullYear()).slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const dateEntered = `${yy}${mm}${dd}`;
+
+    const dateStatus = recurso.tipo_material === 'Publicación seriada' ? 'c' : 's';
+
+    let year1 = '    ';
+    const rawFecha = Array.isArray(recurso.fecha) ? recurso.fecha[0] : (recurso.fecha as any);
+    if (rawFecha) {
+      const match = String(rawFecha).match(/\b(18|19|20)\d{2}\b/);
+      if (match) {
+        year1 = match[0];
+      } else {
+        const digits = String(rawFecha).replace(/\D/g, '').slice(0, 4);
+        if (digits.length === 4) year1 = digits;
+      }
+    }
+
+    const year2 = '    ';
+
+    let place = 'xx ';
+    const rawLugar = Array.isArray(recurso.lugar_publicacion) ? recurso.lugar_publicacion[0] : (recurso.lugar_publicacion as any);
+    if (rawLugar && (String(rawLugar).toLowerCase().includes('argentina') || String(rawLugar).toLowerCase().includes('buenos aires'))) {
+      place = 'ag ';
+    }
+
+    const generalChars = '|||||||||||||||||';
+    const lang = 'spa';
+    const mod = ' ';
+    const source = 'd';
+
+    const f008 = `${dateEntered}${dateStatus}${year1}${year2}${place}${generalChars}${lang}${mod}${source}`;
+    return f008.length === 40 ? f008 : f008.padEnd(40, ' ').slice(0, 40);
+  };
+
+  const xmlRecords: string[] = [];
+
+  for (const r of recursos) {
+    const lines: string[] = [];
+    lines.push('  <record>');
+    lines.push(`    <leader>${getLeader(r.tipo_material)}</leader>`);
+    lines.push(`    <controlfield tag="001">${escapeXml(String(r.id))}</controlfield>`);
+    lines.push(`    <controlfield tag="008">${getField008(r)}</controlfield>`);
+
+    // 020 / 022 - Números Normalizados (ISBN / ISSN)
+    const rawNums: string[] = [];
+    if (Array.isArray(r.numero_normalizado)) rawNums.push(...r.numero_normalizado);
+    if (Array.isArray(r.numero_nomalizado)) rawNums.push(...r.numero_nomalizado);
+    if (Array.isArray((r as any).isbn)) rawNums.push(...(r as any).isbn);
+    const uniqueNums = Array.from(new Set(rawNums.map(n => cleanPunctuation(n)).filter(Boolean))) as string[];
+
+    for (const num of uniqueNums) {
+      const isIssn = r.tipo_material === 'Publicación seriada' || /^\d{4}-\d{3}[\dX]$/i.test(num);
+      const tag = isIssn ? '022' : '020';
+      lines.push(`    <datafield tag="${tag}" ind1=" " ind2=" ">`);
+      lines.push(`      <subfield code="a">${escapeXml(num)}</subfield>`);
+      lines.push('    </datafield>');
+    }
+
+    // 100 / 110 / 111 / 130 - Responsabilidad Principal y Asiento Principal por Título Uniforme
+    const respPrinc = r.responsabilidad_principal;
+    const hasPrincipal = !!(respPrinc && respPrinc.nombre && respPrinc.nombre.trim());
+
+    if (hasPrincipal) {
+      if (respPrinc.tipo === 'AUTOR') {
+        const p = decomposePersonalAuthor(respPrinc.nombre);
+        lines.push(`    <datafield tag="100" ind1="${p.ind1}" ind2=" ">`);
+        lines.push(`      <subfield code="a">${escapeXml(p.name)}</subfield>`);
+        if (p.fullerForm) {
+          lines.push(`      <subfield code="q">${escapeXml(p.fullerForm)}</subfield>`);
+        }
+        if (p.dates) {
+          lines.push(`      <subfield code="d">${escapeXml(p.dates)}</subfield>`);
+        }
+        if (p.relator) {
+          lines.push(`      <subfield code="e">${escapeXml(p.relator)}</subfield>`);
+        }
+        lines.push('    </datafield>');
+      } else {
+        const c = decomposeCorporateOrMeeting(respPrinc.nombre, false, respPrinc.tipo);
+        lines.push(`    <datafield tag="${c.tag}" ind1="${c.ind1}" ind2=" ">`);
+        lines.push(`      <subfield code="a">${escapeXml(c.name)}</subfield>`);
+        if (c.isMeeting) {
+          if (c.meetingNumber) {
+            lines.push(`      <subfield code="n">${escapeXml(c.meetingNumber)}</subfield>`);
+          }
+          if (c.meetingDate) {
+            lines.push(`      <subfield code="d">${escapeXml(c.meetingDate)}</subfield>`);
+          }
+          if (c.meetingPlace) {
+            lines.push(`      <subfield code="c">${escapeXml(c.meetingPlace)}</subfield>`);
+          }
+        } else {
+          for (const sub of c.subordinates) {
+            lines.push(`      <subfield code="b">${escapeXml(sub)}</subfield>`);
+          }
+        }
+        if (c.relator) {
+          lines.push(`      <subfield code="e">${escapeXml(c.relator)}</subfield>`);
+        }
+        lines.push('    </datafield>');
+      }
+    } else if (r.titulo_uniforme && r.titulo_uniforme.trim()) {
+      // 130 - Asiento principal: Título Uniforme (cuando no existe autor o entidad principal)
+      lines.push('    <datafield tag="130" ind1="0" ind2=" ">');
+      lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(r.titulo_uniforme) || r.titulo_uniforme.trim())}</subfield>`);
+      if (r.instrumentacion && r.instrumentacion.trim()) {
+        lines.push(`      <subfield code="m">${escapeXml(cleanPunctuation(r.instrumentacion) || r.instrumentacion.trim())}</subfield>`);
+      }
+      if (r.clave_tono && r.clave_tono.trim()) {
+        lines.push(`      <subfield code="r">${escapeXml(cleanPunctuation(r.clave_tono) || r.clave_tono.trim())}</subfield>`);
+      }
+      lines.push('    </datafield>');
+    }
+
+    // 222 - Título Clave (Publicaciones Seriadas)
+    if (r.titulo_clave && r.titulo_clave.trim()) {
+      lines.push('    <datafield tag="222" ind1=" " ind2="0">');
+      lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(r.titulo_clave) || r.titulo_clave.trim())}</subfield>`);
+      lines.push('    </datafield>');
+    }
+
+    // 240 - Título Uniforme (cuando existe autor o entidad principal en 100/110/111)
+    if (hasPrincipal && r.titulo_uniforme && r.titulo_uniforme.trim()) {
+      lines.push('    <datafield tag="240" ind1="1" ind2="0">');
+      lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(r.titulo_uniforme) || r.titulo_uniforme.trim())}</subfield>`);
+      if (r.instrumentacion && r.instrumentacion.trim()) {
+        lines.push(`      <subfield code="m">${escapeXml(cleanPunctuation(r.instrumentacion) || r.instrumentacion.trim())}</subfield>`);
+      }
+      if (r.clave_tono && r.clave_tono.trim()) {
+        lines.push(`      <subfield code="r">${escapeXml(cleanPunctuation(r.clave_tono) || r.clave_tono.trim())}</subfield>`);
+      }
+      lines.push('    </datafield>');
+    }
+
+    // 245 - Título y Mención de Responsabilidad (MARC 245 $a $b $c $h)
+    const ind1_245 = hasPrincipal ? '1' : '0';
+    lines.push(`    <datafield tag="245" ind1="${ind1_245}" ind2="0">`);
+    
+    // Título y subtítulo
+    const fullTitulo = r.titulo || 'Sin título';
+    if (fullTitulo.includes(' : ')) {
+      const parts = fullTitulo.split(' : ');
+      const mainPart = parts[0];
+      const subPart = parts.slice(1).join(' : ');
+      lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(mainPart) || mainPart.trim())}</subfield>`);
+      lines.push(`      <subfield code="b">${escapeXml(cleanPunctuation(subPart) || subPart.trim())}</subfield>`);
+    } else {
+      lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(fullTitulo) || fullTitulo.trim())}</subfield>`);
+    }
+
+    // Subcampo $h (Designación General de Material)
+    if (r.soporte_fisico && r.soporte_fisico.trim()) {
+      lines.push(`      <subfield code="h">[${escapeXml(cleanPunctuation(r.soporte_fisico) || r.soporte_fisico.trim())}]</subfield>`);
+    }
+
+    // Subcampo $c (Mención de Responsabilidad - MARC21 245 $c)
+    if (r.mencion_responsabilidad && r.mencion_responsabilidad.trim()) {
+      lines.push(`      <subfield code="c">${escapeXml(cleanPunctuation(r.mencion_responsabilidad) || r.mencion_responsabilidad.trim())}</subfield>`);
+    }
+    lines.push('    </datafield>');
+
+    // 246 - Variante del Título
+    if (r.variante_titulo && r.variante_titulo.trim()) {
+      lines.push('    <datafield tag="246" ind1="3" ind2=" ">');
+      lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(r.variante_titulo) || r.variante_titulo.trim())}</subfield>`);
+      lines.push('    </datafield>');
+    }
+
+    // 250 - Edición
+    if (r.edicion && r.edicion.trim()) {
+      lines.push('    <datafield tag="250" ind1=" " ind2=" ">');
+      lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(r.edicion) || r.edicion.trim())}</subfield>`);
+      lines.push('    </datafield>');
+    }
+
+    // 255 - Datos Matemáticos Cartográficos
+    if (r.escala || r.proyeccion || r.coordenadas) {
+      lines.push('    <datafield tag="255" ind1=" " ind2=" ">');
+      if (r.escala && r.escala.trim()) {
+        lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(r.escala) || r.escala.trim())}</subfield>`);
+      }
+      if (r.proyeccion && r.proyeccion.trim()) {
+        lines.push(`      <subfield code="b">${escapeXml(cleanPunctuation(r.proyeccion) || r.proyeccion.trim())}</subfield>`);
+      }
+      if (r.coordenadas && r.coordenadas.trim()) {
+        lines.push(`      <subfield code="c">${escapeXml(cleanPunctuation(r.coordenadas) || r.coordenadas.trim())}</subfield>`);
+      }
+      lines.push('    </datafield>');
+    }
+
+    // 260 - Publicación (Lugar, Editor, Fecha)
+    const lugares = (Array.isArray(r.lugar_publicacion) ? r.lugar_publicacion : (r.lugar_publicacion ? [r.lugar_publicacion] : [])).filter(Boolean);
+    const editores = (Array.isArray(r.editor) ? r.editor : (r.editor ? [r.editor] : [])).filter(Boolean);
+    const fechas = (Array.isArray(r.fecha) ? r.fecha : (r.fecha ? [r.fecha] : [])).filter(Boolean);
+
+    if (lugares.length > 0 || editores.length > 0 || fechas.length > 0) {
+      lines.push('    <datafield tag="260" ind1=" " ind2=" ">');
+      for (const lug of lugares) {
+        lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(lug) || lug.trim())}</subfield>`);
+      }
+      for (const ed of editores) {
+        lines.push(`      <subfield code="b">${escapeXml(cleanPunctuation(ed) || ed.trim())}</subfield>`);
+      }
+      for (const fec of fechas) {
+        lines.push(`      <subfield code="c">${escapeXml(cleanPunctuation(fec) || fec.trim())}</subfield>`);
+      }
+      lines.push('    </datafield>');
+    }
+
+    // 300 - Descripción Física
+    const ext = r.extension || r.formato_audio || r.formato_video || r.descripcion_objeto;
+    const detalles = r.otros_detalles_fisicos || r.color || r.sistema_grabacion || r.detalles_reproduccion;
+    const dims = r.dimensiones || r.dimensiones_3d;
+    const matComp = r.material_complementario;
+
+    if (ext || detalles || dims || matComp) {
+      lines.push('    <datafield tag="300" ind1=" " ind2=" ">');
+      if (ext && ext.trim()) {
+        lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(ext) || ext.trim())}</subfield>`);
+      }
+      if (detalles && detalles.trim()) {
+        lines.push(`      <subfield code="b">${escapeXml(cleanPunctuation(detalles) || detalles.trim())}</subfield>`);
+      }
+      if (dims && dims.trim()) {
+        lines.push(`      <subfield code="c">${escapeXml(cleanPunctuation(dims) || dims.trim())}</subfield>`);
+      }
+      if (matComp && matComp.trim()) {
+        lines.push(`      <subfield code="e">${escapeXml(cleanPunctuation(matComp) || matComp.trim())}</subfield>`);
+      }
+      lines.push('    </datafield>');
+    }
+
+    // 306 - Duración
+    if (r.duracion && r.duracion.trim()) {
+      lines.push('    <datafield tag="306" ind1=" " ind2=" ">');
+      lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(r.duracion) || r.duracion.trim())}</subfield>`);
+      lines.push('    </datafield>');
+    }
+
+    // 310 - Frecuencia
+    if (r.frecuencia && r.frecuencia.trim()) {
+      lines.push('    <datafield tag="310" ind1=" " ind2=" ">');
+      lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(r.frecuencia) || r.frecuencia.trim())}</subfield>`);
+      lines.push('    </datafield>');
+    }
+
+    // 362 - Volumen / Número / Designación cronológica
+    if (r.volumen_numero && r.volumen_numero.trim()) {
+      lines.push('    <datafield tag="362" ind1="0" ind2=" ">');
+      lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(r.volumen_numero) || r.volumen_numero.trim())}</subfield>`);
+      lines.push('    </datafield>');
+    }
+
+    // 382 - Instrumentación (si no fue incluida en 240)
+    if (r.instrumentacion && r.instrumentacion.trim() && !r.titulo_uniforme) {
+      lines.push('    <datafield tag="382" ind1="0" ind2="1">');
+      lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(r.instrumentacion) || r.instrumentacion.trim())}</subfield>`);
+      lines.push('    </datafield>');
+    }
+
+    // 490 - Serie / Colección
+    const colecciones = (Array.isArray(r.coleccion) ? r.coleccion : (r.coleccion ? [r.coleccion] : [])).filter(Boolean);
+    for (const col of colecciones) {
+      lines.push('    <datafield tag="490" ind1="0" ind2=" ">');
+      lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(col) || col.trim())}</subfield>`);
+      lines.push('    </datafield>');
+    }
+
+    // 500 - Notas
+    if (r.notas && Array.isArray(r.notas)) {
+      for (const nota of r.notas) {
+        if (nota && nota.trim()) {
+          lines.push('    <datafield tag="500" ind1=" " ind2=" ">');
+          lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(nota) || nota.trim())}</subfield>`);
+          lines.push('    </datafield>');
+        }
+      }
+    }
+
+    // 502 - Tesis
+    if (r.tesis && r.tesis.trim()) {
+      lines.push('    <datafield tag="502" ind1=" " ind2=" ">');
+      lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(r.tesis) || r.tesis.trim())}</subfield>`);
+      lines.push('    </datafield>');
+    }
+
+    // 505 - Contenido
+    if (r.contenido && Array.isArray(r.contenido)) {
+      const contItems = r.contenido.map(c => cleanPunctuation(c) || c?.trim()).filter(Boolean);
+      if (contItems.length > 0) {
+        lines.push('    <datafield tag="505" ind1="0" ind2=" ">');
+        lines.push(`      <subfield code="a">${escapeXml(contItems.join(' -- '))}</subfield>`);
+        lines.push('    </datafield>');
+      }
+    }
+
+    // 650 - Temas / Materias
+    if (r.temas && Array.isArray(r.temas)) {
+      for (const tema of r.temas) {
+        if (tema && tema.trim()) {
+          lines.push('    <datafield tag="650" ind1=" " ind2="4">');
+          lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(tema) || tema.trim())}</subfield>`);
+          lines.push('    </datafield>');
+        }
+      }
+    }
+
+    // 700 / 710 / 711 - Responsabilidades Secundarias
+    if (r.responsabilidad_secundaria && Array.isArray(r.responsabilidad_secundaria)) {
+      for (const sec of r.responsabilidad_secundaria) {
+        if (!sec.nombre || !sec.nombre.trim()) continue;
+        if (respPrinc && esAutorDuplicado(respPrinc.nombre, sec.nombre)) continue;
+
+        if (sec.tipo === 'AUTOR') {
+          const p = decomposePersonalAuthor(sec.nombre);
+          lines.push(`    <datafield tag="700" ind1="${p.ind1}" ind2=" ">`);
+          lines.push(`      <subfield code="a">${escapeXml(p.name)}</subfield>`);
+          if (p.fullerForm) {
+            lines.push(`      <subfield code="q">${escapeXml(p.fullerForm)}</subfield>`);
+          }
+          if (p.dates) {
+            lines.push(`      <subfield code="d">${escapeXml(p.dates)}</subfield>`);
+          }
+          if (p.relator) {
+            lines.push(`      <subfield code="e">${escapeXml(p.relator)}</subfield>`);
+          }
+          lines.push('    </datafield>');
+        } else {
+          const c = decomposeCorporateOrMeeting(sec.nombre, true, sec.tipo);
+          lines.push(`    <datafield tag="${c.tag}" ind1="${c.ind1}" ind2=" ">`);
+          lines.push(`      <subfield code="a">${escapeXml(c.name)}</subfield>`);
+          if (c.isMeeting) {
+            if (c.meetingNumber) {
+              lines.push(`      <subfield code="n">${escapeXml(c.meetingNumber)}</subfield>`);
+            }
+            if (c.meetingDate) {
+              lines.push(`      <subfield code="d">${escapeXml(c.meetingDate)}</subfield>`);
+            }
+            if (c.meetingPlace) {
+              lines.push(`      <subfield code="c">${escapeXml(c.meetingPlace)}</subfield>`);
+            }
+          } else {
+            for (const sub of c.subordinates) {
+              lines.push(`      <subfield code="b">${escapeXml(sub)}</subfield>`);
+            }
+          }
+          if (c.relator) {
+            lines.push(`      <subfield code="e">${escapeXml(c.relator)}</subfield>`);
+          }
+          lines.push('    </datafield>');
+        }
+      }
+    }
+
+    // 856 - Recurso Electrónico (URL)
+    if (r.url_recurso && r.url_recurso.trim()) {
+      lines.push('    <datafield tag="856" ind1="4" ind2="0">');
+      lines.push(`      <subfield code="u">${escapeXml(r.url_recurso.trim())}</subfield>`);
+      lines.push('      <subfield code="z">Acceso al recurso en línea</subfield>');
+      lines.push('    </datafield>');
+    }
+
+    // 866 - Existencias en Seriadas
+    if (r.existencias && r.existencias.trim()) {
+      lines.push('    <datafield tag="866" ind1=" " ind2="0">');
+      lines.push(`      <subfield code="a">${escapeXml(cleanPunctuation(r.existencias) || r.existencias.trim())}</subfield>`);
+      lines.push('    </datafield>');
+    }
+
+    // Holdings y Ejemplares (852 para MARC21 / VuFind / Koha)
+    const biblio = nombreBiblioteca || 'Biblioteca';
+    if (r.ejemplares && Array.isArray(r.ejemplares) && r.ejemplares.length > 0) {
+      for (const ej of r.ejemplares) {
+        const inv = cleanPunctuation(ej.inventario) || ej.inventario?.trim() || '';
+        const rawUbic = cleanPunctuation(ej.ubicacion) || ej.ubicacion?.trim() || '';
+
+        // Signatura topográfica completa de Auralib en subcampo $h (estándar MARC21 para call number sin desglose)
+        // 852 (MARC21 estándar de ubicación y fondos)
+        lines.push('    <datafield tag="852" ind1=" " ind2=" ">');
+        lines.push(`      <subfield code="a">${escapeXml(biblio)}</subfield>`);
+        if (rawUbic) {
+          lines.push(`      <subfield code="h">${escapeXml(rawUbic)}</subfield>`);
+        }
+        if (inv) {
+          lines.push(`      <subfield code="p">${escapeXml(inv)}</subfield>`);
+        }
+        lines.push('    </datafield>');
+      }
+    }
+
+    lines.push('  </record>');
+    xmlRecords.push(lines.join('\n'));
+  }
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<collection xmlns="http://www.loc.gov/MARC21/slim"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd">
+${xmlRecords.join('\n')}
+</collection>
+`;
+}

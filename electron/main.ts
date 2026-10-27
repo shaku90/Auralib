@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -23,6 +23,23 @@ function createWindow() {
   // Elimina la barra de menú predeterminada de Electron para esta ventana (Windows/Linux)
   win.setMenu(null);
 
+  // Interceptar la apertura de nuevas ventanas (target="_blank", window.open) y abrirlas en el navegador externo predeterminado
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http:') || url.startsWith('https:') || url.startsWith('mailto:') || url.startsWith('tel:')) {
+      shell.openExternal(url);
+      return { action: 'deny' };
+    }
+    return { action: 'allow' };
+  });
+
+  // Prevenir navegaciones que intenten cargar páginas externas dentro de la propia ventana de la app
+  win.webContents.on('will-navigate', (event, url) => {
+    if (url.startsWith('http:') || url.startsWith('https:') || url.startsWith('mailto:') || url.startsWith('tel:')) {
+      event.preventDefault();
+      shell.openExternal(url);
+    }
+  });
+
   // Como usamos Vite, el frontend compilado se encuentra en dist/
   win.loadFile(path.join(__dirname, '../dist/index.html'));
 }
@@ -42,6 +59,20 @@ app.whenReady().then(() => {
       return null;
     }
     return filePaths[0];
+  });
+
+  // Abrir enlaces externos en el navegador predeterminado del sistema operativo
+  ipcMain.handle('open-external-url', async (event, url: string) => {
+    try {
+      if (url && (url.startsWith('http:') || url.startsWith('https:') || url.startsWith('mailto:') || url.startsWith('tel:'))) {
+        await shell.openExternal(url);
+        return { success: true };
+      }
+      return { success: false, error: 'URL no válida' };
+    } catch (error: any) {
+      console.error('Error al abrir URL externa:', error);
+      return { success: false, error: error.message };
+    }
   });
 
   // Lector de fotos

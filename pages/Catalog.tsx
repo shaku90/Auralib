@@ -140,6 +140,7 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
   const [authorities, setAuthorities] = useState<string[]>([]);
   const [termCounts, setTermCounts] = useState<Record<string, number>>({});
   const [authorityCounts, setAuthorityCounts] = useState<Record<string, number>>({});
+  const [authorityTypes, setAuthorityTypes] = useState<Record<string, TipoResponsabilidad>>({});
   const [visibleCount, setVisibleCount] = useState(20);
   const [visibleTermsCount, setVisibleTermsCount] = useState(150);
   const [visibleAuthoritiesCount, setVisibleAuthoritiesCount] = useState(150);
@@ -275,10 +276,12 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
     isOpen: boolean;
     oldAuthority: string;
     newAuthority: string;
+    tipo: TipoResponsabilidad;
   }>({
     isOpen: false,
     oldAuthority: '',
-    newAuthority: ''
+    newAuthority: '',
+    tipo: 'AUTOR'
   });
 
   // --- CARGA INICIAL ---
@@ -334,11 +337,14 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
   };
 
   const loadAuthorities = async () => {
+      // Depurar automáticamente autoridades huérfanas (sin registros asociados en el catálogo)
+      await dbService.depurarAutoridadesHuerfanas();
       const auths = await dbService.listarAutoridades();
       setAuthorities(auths);
       try {
           const allRecursos = await dbService.listarRecursos();
           const counts: Record<string, number> = {};
+          const types: Record<string, TipoResponsabilidad> = {};
           auths.forEach(auth => {
               counts[auth] = 0;
           });
@@ -348,6 +354,9 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
                   const match = auths.find(a => a.toLowerCase().trim() === name.toLowerCase());
                   if (match) {
                       counts[match] = (counts[match] || 0) + 1;
+                      if (r.responsabilidad_principal.tipo) {
+                          types[match] = r.responsabilidad_principal.tipo;
+                      }
                   }
               }
               if (r.responsabilidad_secundaria) {
@@ -357,15 +366,46 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
                           const match = auths.find(a => a.toLowerCase().trim() === name.toLowerCase());
                           if (match) {
                               counts[match] = (counts[match] || 0) + 1;
+                              if (sec.tipo && !types[match]) {
+                                  types[match] = sec.tipo;
+                              }
                           }
                       }
                   });
               }
           });
+          try {
+              const persistedTypes = await dbService.obtenerTiposAutoridades();
+              auths.forEach(auth => {
+                  const norm = auth.toLowerCase().trim();
+                  if (persistedTypes[norm]) {
+                      types[auth] = persistedTypes[norm];
+                  }
+              });
+          } catch (err) {
+              // fallback
+          }
           setAuthorityCounts(counts);
+          setAuthorityTypes(types);
       } catch (e) {
           console.error("Error calculating authority counts:", e);
       }
+  };
+
+  const getAuthorityType = (auth: string): TipoResponsabilidad => {
+      if (authorityTypes[auth]) return authorityTypes[auth];
+      const lower = auth.toLowerCase().trim();
+      if (/\((corporativa|entidad corporativa)\)/i.test(lower) || 
+          /^(universidad|ministerio|editorial|fundaci[oó]n|congreso|jornadas?|instituto|asociaci[oó]n|academia|organizaci[oó]n|comisi[oó]n|unesco|secretar[ií]a|direcci[oó]n|gobierno|consejo)\b/i.test(lower) ||
+          /\b(s\.a\.|s\.r\.l\.|inc\.|ltd\.|ltda\.|llc)\b/i.test(lower)) {
+          return 'CORPORATIVA';
+      }
+      if (/\((geogr[aá]fica|jurisdicci[oó]n|lugar)\)/i.test(lower) || 
+          /\((provincia|rep[uú]blica|ciudad|pa[ií]s|estado)\)/i.test(lower) ||
+          /^(argentina|buenos aires|chile|brasil|uruguay|espa[nñ]a|m[eé]xico|francia|italia)\b/i.test(lower)) {
+          return 'GEOGRAFICA';
+      }
+      return 'AUTOR';
   };
 
   // Solo recargar recursos cuando cambie el término de búsqueda de recursos
@@ -1040,15 +1080,17 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
   };
 
   const handleEditAuthority = (authority: string) => {
+      const currentType = getAuthorityType(authority);
       setEditAuthorityModal({
           isOpen: true,
           oldAuthority: authority,
-          newAuthority: authority
+          newAuthority: authority,
+          tipo: currentType
       });
   };
 
   const handleSaveEditAuthority = async () => {
-      const { oldAuthority, newAuthority } = editAuthorityModal;
+      const { oldAuthority, newAuthority, tipo } = editAuthorityModal;
       if (!newAuthority.trim()) {
           setAlertModal({
               isOpen: true,
@@ -1058,12 +1100,12 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
           return;
       }
       try {
-          await dbService.actualizarAutoridad(oldAuthority, newAuthority);
-          setEditAuthorityModal({ isOpen: false, oldAuthority: '', newAuthority: '' });
+          await dbService.actualizarAutoridad(oldAuthority, newAuthority, tipo);
+          setEditAuthorityModal({ isOpen: false, oldAuthority: '', newAuthority: '', tipo: 'AUTOR' });
           await loadAuthorities();
           await loadRecursos();
       } catch (error: any) {
-          setEditAuthorityModal({ isOpen: false, oldAuthority: '', newAuthority: '' });
+          setEditAuthorityModal({ isOpen: false, oldAuthority: '', newAuthority: '', tipo: 'AUTOR' });
           setAlertModal({
               isOpen: true,
               title: 'Error al actualizar',
@@ -1337,6 +1379,17 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
                                                         href={l.url_recurso.startsWith('http') ? l.url_recurso : `https://${l.url_recurso}`} 
                                                         target="_blank" 
                                                         rel="noopener noreferrer" 
+                                                        onClick={(e) => {
+                                                            const fullUrl = l.url_recurso!.startsWith('http') ? l.url_recurso! : `https://${l.url_recurso!}`;
+                                                            if (typeof window !== 'undefined' && (window as any).electronAPI) {
+                                                                e.preventDefault();
+                                                                if ((window as any).electronAPI.openExternal) {
+                                                                    (window as any).electronAPI.openExternal(fullUrl);
+                                                                } else {
+                                                                    (window as any).electronAPI.invoke('open-external-url', fullUrl);
+                                                                }
+                                                            }
+                                                        }}
                                                         className="text-blue-600 hover:text-blue-800 hover:underline font-mono text-xs block mt-1 break-all flex items-center gap-1"
                                                     >
                                                         <span>🔗</span> {l.url_recurso}
@@ -1688,10 +1741,22 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                           {filteredAuthorities.slice(0, visibleAuthoritiesCount).map((auth, i) => {
                               const count = authorityCounts[auth] || 0;
+                              const tipo = getAuthorityType(auth);
+                              let cardColor = 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-blue-50/10 hover:border-blue-200';
+                              let titleColor = 'text-gray-800';
+
+                              if (tipo === 'CORPORATIVA') {
+                                  cardColor = 'bg-sky-50 border-sky-200 text-sky-950 hover:bg-sky-100/50 hover:border-sky-300';
+                                  titleColor = 'text-sky-950';
+                              } else if (tipo === 'GEOGRAFICA') {
+                                  cardColor = 'bg-amber-50 border-amber-200 text-amber-950 hover:bg-amber-100/50 hover:border-amber-300';
+                                  titleColor = 'text-amber-950';
+                              }
+
                               return (
-                                  <div key={i} className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 flex justify-between items-center group hover:bg-blue-50/10 hover:border-blue-200 hover:shadow-sm transition duration-150">
+                                  <div key={i} className={`p-3 border rounded-xl text-sm flex justify-between items-center group hover:shadow-sm transition duration-150 ${cardColor}`}>
                                       <div className="flex items-center min-w-0 flex-1 gap-2">
-                                          <span className="font-semibold text-gray-800 truncate font-sans" title={auth}>{auth}</span>
+                                          <span className={`font-semibold truncate font-sans ${titleColor}`} title={auth}>{auth}</span>
                                           <span 
                                               className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-bold font-mono transition-colors border ${
                                                   count > 0 
@@ -1862,7 +1927,7 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
                         {/* Principal */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
                             <div className="md:col-span-1">
-                                <label className="block text-xs font-medium text-gray-500">Principal Tipo</label>
+                                <label className="block text-xs font-medium text-gray-500">Principal</label>
                                 <select 
                                     className="w-full border border-gray-300 p-2 rounded bg-white text-sm focus:ring-2 focus:ring-sky-200 focus:outline-none"
                                     value={respPrincipal.tipo}
@@ -1883,36 +1948,41 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
                         </div>
 
                         {/* Secundarias */}
-                        {respSecundarias.map((resp, idx) => (
-                            <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                                <div className="md:col-span-1">
-                                    <select 
-                                        className="w-full border border-gray-300 p-2 rounded bg-white text-sm focus:ring-2 focus:ring-sky-200 focus:outline-none"
-                                        value={resp.tipo}
-                                        onChange={e => updateRespSecundaria(idx, 'tipo', e.target.value)}
-                                    >
-                                        <option value="AUTOR">Autor</option>
-                                        <option value="CORPORATIVA">Entidad Corporativa</option>
-                                        <option value="GEOGRAFICA">Entidad Geográfica</option>
-                                    </select>
-                                </div>
-                                <div className="md:col-span-3 flex gap-2 items-center">
-                                    <input type="text" list="authorities-list" className="flex-1 w-full border border-gray-300 rounded p-2 bg-white text-sm focus:ring-2 focus:ring-sky-200 focus:outline-none" 
-                                        value={resp.nombre} onChange={e => updateRespSecundaria(idx, 'nombre', e.target.value)} 
-                                        placeholder="Colaborador, Traductor, etc."
-                                    />
-                                    <button 
-                                        type="button" 
-                                        onClick={() => removeRespSecundaria(idx)} 
-                                        className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition duration-150 flex items-center justify-center shrink-0 w-9 h-9"
-                                        title="Eliminar responsabilidad"
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
+                        {respSecundarias.length > 0 && (
+                            <div className="space-y-2 pt-1">
+                                <label className="block text-xs font-medium text-gray-500">Secundaria</label>
+                                {respSecundarias.map((resp, idx) => (
+                                    <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
+                                        <div className="md:col-span-1">
+                                            <select 
+                                                className="w-full border border-gray-300 p-2 rounded bg-white text-sm focus:ring-2 focus:ring-sky-200 focus:outline-none"
+                                                value={resp.tipo}
+                                                onChange={e => updateRespSecundaria(idx, 'tipo', e.target.value)}
+                                            >
+                                                <option value="AUTOR">Autor</option>
+                                                <option value="CORPORATIVA">Entidad Corporativa</option>
+                                                <option value="GEOGRAFICA">Entidad Geográfica</option>
+                                            </select>
+                                        </div>
+                                        <div className="md:col-span-3 flex gap-2 items-center">
+                                            <input type="text" list="authorities-list" className="flex-1 w-full border border-gray-300 rounded p-2 bg-white text-sm focus:ring-2 focus:ring-sky-200 focus:outline-none" 
+                                                value={resp.nombre} onChange={e => updateRespSecundaria(idx, 'nombre', e.target.value)} 
+                                                placeholder="Colaborador, Traductor, etc."
+                                            />
+                                            <button 
+                                                type="button" 
+                                                onClick={() => removeRespSecundaria(idx)} 
+                                                className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition duration-150 flex items-center justify-center shrink-0 w-9 h-9"
+                                                title="Eliminar responsabilidad"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                        <button type="button" onClick={addRespSecundaria} className="text-sm text-sky-600 mt-2 font-normal">+ Añadir Responsabilidad Secundaria</button>
+                        )}
+                        <button type="button" onClick={addRespSecundaria} className="text-sm text-sky-600 mt-2 font-normal block">+ Añadir Responsabilidad Secundaria</button>
                     </div>
 
                     {/* 3. Edición */}
@@ -2606,7 +2676,7 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
                           <h3 className="text-xl font-bold text-gray-800 font-sans">Editar autoridad</h3>
                       </div>
                       <p className="text-sm text-gray-500 mb-4">
-                          Modifique el nombre de la autoridad. Este cambio se impactará automáticamente en todos los registros bibliográficos del catálogo que utilicen esta autoridad.
+                          Modifique el nombre o tipo de la autoridad. Este cambio se impactará automáticamente en todos los registros bibliográficos del catálogo que utilicen esta autoridad.
                       </p>
                       
                       <div className="space-y-1">
@@ -2614,6 +2684,19 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
                           <div className="p-3 bg-gray-100 rounded-lg text-sm text-gray-700 font-mono">
                               {editAuthorityModal.oldAuthority}
                           </div>
+                      </div>
+
+                      <div className="space-y-1.5 mt-4">
+                          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block">Tipo</label>
+                          <select 
+                              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-sky-200 focus:outline-none text-sm font-medium bg-white"
+                              value={editAuthorityModal.tipo}
+                              onChange={e => setEditAuthorityModal(prev => ({ ...prev, tipo: e.target.value as TipoResponsabilidad }))}
+                          >
+                              <option value="AUTOR">Autor</option>
+                              <option value="CORPORATIVA">Entidad Corporativa</option>
+                              <option value="GEOGRAFICA">Entidad Geográfica</option>
+                          </select>
                       </div>
 
                       <div className="space-y-1.5 mt-4">
@@ -2637,7 +2720,7 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
                       </button>
                       <button
                           type="button"
-                          onClick={() => setEditAuthorityModal({ isOpen: false, oldAuthority: '', newAuthority: '' })}
+                          onClick={() => setEditAuthorityModal({ isOpen: false, oldAuthority: '', newAuthority: '', tipo: 'AUTOR' })}
                           className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg shadow-sm focus:outline-none transition-colors"
                       >
                           Cancelar
