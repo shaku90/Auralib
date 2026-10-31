@@ -56,4 +56,10 @@ Desarrollado por Facundo Belascoain Kirby para brindar una solución libre, pote
 Este proyecto está bajo la Licencia **GNU General Public License v3.0 (GPL-3.0)**. Consulta el archivo [LICENSE](LICENSE) para más detalles.
 
 ---
+
+## 🔒 Privacidad
+
+Auralib es una aplicación local-first que no recopila, transmite ni almacena datos personales en servidores remotos. Consulta nuestra [Directiva de Privacidad](PRIVACY.md) para más detalles.
+
+---
 *Auralib — Sistema de Gestión Bibliotecaria.*
