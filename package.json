@@ -1,7 +1,7 @@
 {
   "name": "auralib",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Sistema de Gestión Bibliotecaria",
   "homepage": "https://github.com/shaku90/Auralib",
   "license": "GPL-3.0",
@@ -31,8 +31,16 @@
       "assets/**/*"
     ],
     "win": {
-      "target": "nsis",
+      "target": [
+        "nsis",
+        "appx"
+      ],
       "icon": "assets/icon.ico"
+    },
+    "appx": {
+      "applicationId": "Auralib",
+      "identityName": "com.auralib.app",
+      "publisherDisplayName": "Facundo Belascoain Kirby"
     },
     "linux": {
       "target": [
