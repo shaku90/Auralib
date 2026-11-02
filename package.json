@@ -1,5 +1,6 @@
 {
   "name": "auralib",
+  "desktopName": "com.auralib.app.desktop",
   "private": true,
   "version": "1.2.2",
   "description": "Sistema de Gestión Bibliotecaria",
@@ -45,13 +46,9 @@
       "backgroundColor": "#1e1b4b"
     },
     "linux": {
-      "target": [
-        "deb",
-        "AppImage"
-      ],
+      "target": "deb",
       "icon": "assets/icon.png",
       "category": "Education",
-      "desktopName": "com.auralib.app.desktop",
       "maintainer": "Facundo Belascoain Kirby <facundo.belascoain@gmail.com>"
     }
   },
