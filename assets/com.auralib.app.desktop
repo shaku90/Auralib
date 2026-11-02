@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Auralib
+Comment=Sistema de Gestión Bibliotecaria
+GenericName=Gestor de Biblioteca
+Exec=auralib %U
+Icon=com.auralib.app
+Type=Application
+Terminal=false
+StartupNotify=true
+StartupWMClass=com.auralib.app
+Categories=Education;Office;Database;
+Keywords=biblioteca;catalogo;prestamos;libros;marc21;aguapey;koha;

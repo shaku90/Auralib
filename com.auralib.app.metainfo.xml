@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.auralib.app</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Auralib</name>
+  <summary>Sistema moderno e intuitivo de gestión bibliotecaria</summary>
+  <description>
+    <p>
+      Auralib es una plataforma moderna, ágil y sin distracciones diseñada para la gestión integral de bibliotecas escolares, públicas e institucionales.
+    </p>
+    <p>
+      Funcionalidades principales:
+    </p>
+    <ul>
+      <li>Gestión de catálogo: control de recursos, inventarios, ejemplares, estados y fichas bibliográficas RCAA2 / MARC 21.</li>
+      <li>Control de autoridades: normalización de autores personales, entidades corporativas y jurisdicciones geográficas.</li>
+      <li>Circulación y préstamos: registro rápido de salidas, devoluciones y seguimiento de morosos.</li>
+      <li>Importación y exportación: soporte para archivos ISO 2709 (Aguapey), CSV y exportación completa a MARCXML estándar.</li>
+      <li>Estadísticas y diagnósticos: métricas históricas de préstamos, tendencias mensuales y análisis de obsolescencia del fondo bibliográfico.</li>
+      <li>Privacidad por diseño (Local-First): todos los datos se almacenan de manera local y autónoma en el equipo sin telemetría ni servidores remotos.</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">com.auralib.app.desktop</launchable>
+  <url type="homepage">https://github.com/shaku90/Auralib</url>
+  <url type="bugtracker">https://github.com/shaku90/Auralib/issues</url>
+  <url type="vcs-browser">https://github.com/shaku90/Auralib</url>
+  <developer_name>Facundo Belascoain Kirby</developer_name>
+  <provides>
+    <binary>auralib</binary>
+  </provides>
+  <content_rating type="oars-1.1" />
+  <categories>
+    <category>Education</category>
+    <category>Office</category>
+    <category>Database</category>
+  </categories>
+  <releases>
+    <release version="1.2.2" date="2026-11-02">
+      <description>
+        <p>Ajustes de iconos nativos para Windows Store y soporte completo para empaquetado Flathub / Linux.</p>
+      </description>
+    </release>
+    <release version="1.2.1" date="2026-10-31">
+      <description>
+        <p>Configuración de empaquetado directo APPX para Microsoft Store y directiva de privacidad oficial.</p>
+      </description>
+    </release>
+    <release version="1.2.0" date="2026-10-27">
+      <description>
+        <p>Exportación a MARCXML, categorización por colores en control de autoridades y soporte para instaladores Debian (.deb).</p>
+      </description>
+    </release>
+  </releases>
+</component>

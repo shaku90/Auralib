@@ -6,13 +6,36 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Identificador de modelo de usuario de aplicación en Windows para asociar icono en barra de tareas y menú de inicio
+if (process.platform === 'win32') {
+  app.setAppUserModelId('FacundoBelascoainKirby.Auralib');
+}
+
+function getAppIconPath(): string | undefined {
+  const isWin = process.platform === 'win32';
+  const candidates = [
+    ...(isWin ? [
+      path.join(__dirname, '../assets/icon.ico'),
+      path.join(process.resourcesPath, 'assets/icon.ico'),
+      path.join(process.resourcesPath, 'app/assets/icon.ico')
+    ] : []),
+    path.join(__dirname, '../assets/icon.png'),
+    path.join(process.resourcesPath, 'assets/icon.png'),
+    path.join(process.resourcesPath, 'app/assets/icon.png')
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) return c;
+  }
+  return undefined;
+}
+
 function createWindow() {
-  const iconPath = path.join(__dirname, '../assets/icon.png');
+  const iconPath = getAppIconPath();
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
     title: 'Auralib',
-    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,

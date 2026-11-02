@@ -1,7 +1,7 @@
 {
   "name": "auralib",
   "private": true,
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Sistema de Gestión Bibliotecaria",
   "homepage": "https://github.com/shaku90/Auralib",
   "license": "GPL-3.0",
@@ -39,8 +39,10 @@
     },
     "appx": {
       "applicationId": "Auralib",
-      "identityName": "com.auralib.app",
-      "publisherDisplayName": "Facundo Belascoain Kirby"
+      "identityName": "FacundoBelascoainKirby.Auralib",
+      "publisher": "CN=4442A6E3-716D-4772-BC99-7D809313A1F3",
+      "publisherDisplayName": "Facundo Belascoain Kirby",
+      "backgroundColor": "#1e1b4b"
     },
     "linux": {
       "target": [
@@ -49,6 +51,7 @@
       ],
       "icon": "assets/icon.png",
       "category": "Education",
+      "desktopName": "com.auralib.app.desktop",
       "maintainer": "Facundo Belascoain Kirby <facundo.belascoain@gmail.com>"
     }
   },
