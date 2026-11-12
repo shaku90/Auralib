@@ -1145,24 +1145,50 @@ const Catalog: React.FC<CatalogProps> = ({ initialStep = 'list' }) => {
 
       {/* TABS DE CATALOGACIÓN */}
       {(view === 'list' || view === 'indices' || view === 'authorities') && (
-          <div className="flex border-b border-gray-300 mb-6">
+          <div className="bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 p-2 rounded-xl shadow-md mb-6 flex flex-wrap items-center gap-2 border border-blue-950/40">
               <button 
                 onClick={() => setView('list')}
-                className={`py-3 px-6 font-semibold border-b-2 text-sm flex items-center gap-2 ${view === 'list' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                className={`py-2 px-5 rounded-lg font-semibold text-sm focus:outline-none transition-colors duration-150 flex items-center gap-2 border ${
+                  view === 'list' 
+                    ? 'bg-blue-600 text-white shadow-sm border-blue-400/40' 
+                    : 'border-transparent text-blue-100/80 hover:text-white hover:bg-white/10'
+                }`}
               >
                   📚 Registros
               </button>
               <button 
                 onClick={() => setView('indices')}
-                className={`py-3 px-6 font-semibold border-b-2 text-sm flex items-center gap-2 ${view === 'indices' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                className={`py-2 px-5 rounded-lg font-semibold text-sm focus:outline-none transition-colors duration-150 flex items-center gap-2 border ${
+                  view === 'indices' 
+                    ? 'bg-blue-600 text-white shadow-sm border-blue-400/40' 
+                    : 'border-transparent text-blue-100/80 hover:text-white hover:bg-white/10'
+                }`}
               >
-                  🏷️ Términos de Indización ({availableTerms.length})
+                  🏷️ Términos de Indización
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-mono font-normal border transition-colors duration-150 ${
+                    view === 'indices' 
+                      ? 'bg-white/20 text-white border-white/25' 
+                      : 'bg-blue-950/60 text-blue-200 border-blue-800/40'
+                  }`}>
+                    {availableTerms.length}
+                  </span>
               </button>
               <button 
                 onClick={() => setView('authorities')}
-                className={`py-3 px-6 font-semibold border-b-2 text-sm flex items-center gap-2 ${view === 'authorities' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                className={`py-2 px-5 rounded-lg font-semibold text-sm focus:outline-none transition-colors duration-150 flex items-center gap-2 border ${
+                  view === 'authorities' 
+                    ? 'bg-blue-600 text-white shadow-sm border-blue-400/40' 
+                    : 'border-transparent text-blue-100/80 hover:text-white hover:bg-white/10'
+                }`}
               >
-                  👤 Control de Autoridades ({authorities.length})
+                  👤 Control de Autoridades
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-mono font-normal border transition-colors duration-150 ${
+                    view === 'authorities' 
+                      ? 'bg-white/20 text-white border-white/25' 
+                      : 'bg-blue-950/60 text-blue-200 border-blue-800/40'
+                  }`}>
+                    {authorities.length}
+                  </span>
               </button>
           </div>
       )}

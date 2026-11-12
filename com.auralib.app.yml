@@ -1,0 +1,80 @@
+app-id: com.auralib.app
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '24.08'
+command: auralib
+separate-locales: false
+
+finish-args:
+  # Soporte para servidores gráficos X11 y Wayland nativo
+  - --socket=x11
+  - --socket=wayland
+  - --share=ipc
+  - --device=dri
+  # Permisos de archivos para importar catálogos (ISO 2709, CSV) y exportar respaldos (JSON, MARCXML)
+  - --filesystem=xdg-download
+  - --filesystem=xdg-documents
+  # Notificaciones del sistema
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.freedesktop.FileManager1
+
+modules:
+  - name: auralib
+    buildsystem: simple
+    build-commands:
+      # 1. Crear directorios estándar en el prefijo /app de Flatpak
+      - install -d /app/bin /app/lib/auralib /app/share/applications /app/share/metainfo /app/share/icons/hicolor/128x128/apps /app/share/icons/hicolor/256x256/apps /app/share/icons/hicolor/512x512/apps
+      
+      # 2. Desempaquetar los archivos de la aplicación (desde el paquete .deb)
+      - ar x auralib_*.deb
+      - tar -xf data.tar.* -C /
+      - cp -r /opt/Auralib/* /app/lib/auralib/
+      
+      # 3. Crear script de lanzamiento en /app/bin/auralib
+      - |
+        cat << 'EOF' > /app/bin/auralib
+        #!/bin/sh
+        export TMPDIR="${XDG_RUNTIME_DIR}/app/${FLATPAK_ID}"
+        exec zypak-wrapper /app/lib/auralib/auralib "$@"
+        EOF
+      - chmod +x /app/bin/auralib
+      
+      # 4. Instalar acceso directo del escritorio (.desktop)
+      - install -Dm644 com.auralib.app.desktop /app/share/applications/com.auralib.app.desktop
+      
+      # 5. Instalar metadatos AppStream de la tienda (.metainfo.xml)
+      - install -Dm644 com.auralib.app.metainfo.xml /app/share/metainfo/com.auralib.app.metainfo.xml
+      
+      # 6. Instalar iconos en resoluciones estándar
+      - install -Dm644 assets/icons/128x128/com.auralib.app.png /app/share/icons/hicolor/128x128/apps/com.auralib.app.png
+      - install -Dm644 assets/icons/256x256/com.auralib.app.png /app/share/icons/hicolor/256x256/apps/com.auralib.app.png
+      - install -Dm644 assets/icons/512x512/com.auralib.app.png /app/share/icons/hicolor/512x512/apps/com.auralib.app.png
+
+    sources:
+      # Descarga el paquete .deb publicado en tus Releases de GitHub
+      # (Al publicar una nueva versión, solo actualizas la URL y el hash sha256)
+      - type: file
+        url: https://github.com/shaku90/Auralib/releases/download/v1.2.3/auralib_1.2.3_amd64.deb
+        sha256: 0000000000000000000000000000000000000000000000000000000000000000
+        only-arches: [x86_64]
+      
+      # Archivos locales de metadatos integrados en el repositorio
+      - type: file
+        path: com.auralib.app.desktop
+      
+      - type: file
+        path: com.auralib.app.metainfo.xml
+      
+      - type: file
+        path: assets/icons/128x128/com.auralib.app.png
+        dest: assets/icons/128x128
+      
+      - type: file
+        path: assets/icons/256x256/com.auralib.app.png
+        dest: assets/icons/256x256
+      
+      - type: file
+        path: assets/icons/512x512/com.auralib.app.png
+        dest: assets/icons/512x512

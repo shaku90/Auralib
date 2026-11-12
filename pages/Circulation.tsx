@@ -268,7 +268,7 @@ const Circulation: React.FC<CirculationProps> = ({ initialTab = 'prestamo' }) =>
       const inventario = currentBook.ejemplares[currentCopyIndex].inventario;
 
       await dbService.registrarPrestamo(currentUser.id, currentBook.id, inventario, dias);
-      setLoanMessage({ type: 'success', text: `Préstamo registrado correctamente. Devolución: en ${dias} días.` });
+      setLoanMessage({ type: 'success', text: `Préstamo registrado correctamente. Devolución en ${dias} días.` });
       // Actualizar los datos del usuario para mostrar el nuevo préstamo en la lista
       const loans = await dbService.listarPrestamosActivos(currentUser.id);
       setCurrentLoans(loans);
@@ -454,21 +454,33 @@ const Circulation: React.FC<CirculationProps> = ({ initialTab = 'prestamo' }) =>
       </div>
 
       {/* PESTAÑAS */}
-      <div className="flex border-b border-gray-300 mb-6">
+      <div className="bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 p-2 rounded-xl shadow-md mb-6 flex flex-wrap items-center gap-2 border border-blue-950/40">
           <button
-              className={`py-3 px-6 font-semibold text-sm focus:outline-none border-b-2 flex items-center gap-2 ${activeTab === 'prestamo' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-2 px-5 rounded-lg font-semibold text-sm focus:outline-none transition-colors duration-150 flex items-center gap-2 border ${
+                  activeTab === 'prestamo'
+                      ? 'bg-blue-600 text-white shadow-sm border-blue-400/40'
+                      : 'border-transparent text-blue-100/80 hover:text-white hover:bg-white/10'
+              }`}
               onClick={() => setActiveTab('prestamo')}
           >
               🚀 Prestar
           </button>
           <button
-              className={`py-3 px-6 font-semibold text-sm focus:outline-none border-b-2 flex items-center gap-2 ${activeTab === 'devolucion' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-2 px-5 rounded-lg font-semibold text-sm focus:outline-none transition-colors duration-150 flex items-center gap-2 border ${
+                  activeTab === 'devolucion'
+                      ? 'bg-emerald-600 text-white shadow-sm border-emerald-400/40'
+                      : 'border-transparent text-blue-100/80 hover:text-white hover:bg-white/10'
+              }`}
               onClick={() => setActiveTab('devolucion')}
           >
               📥 Devolver
           </button>
           <button
-              className={`py-3 px-6 font-semibold text-sm focus:outline-none border-b-2 flex items-center gap-2 ${activeTab === 'morosos' ? 'border-red-600 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-2 px-5 rounded-lg font-semibold text-sm focus:outline-none transition-colors duration-150 flex items-center gap-2 border ${
+                  activeTab === 'morosos'
+                      ? 'bg-red-600 text-white shadow-sm border-red-400/40'
+                      : 'border-transparent text-blue-100/80 hover:text-white hover:bg-white/10'
+              }`}
               onClick={() => setActiveTab('morosos')}
           >
               ⚠️ Morosos
@@ -478,16 +490,14 @@ const Circulation: React.FC<CirculationProps> = ({ initialTab = 'prestamo' }) =>
       {/* --- PESTAÑA: PRÉSTAMO --- */}
       {activeTab === 'prestamo' && (
           <div>
-              {/* Mensajes Préstamo */}
-              {loanMessage && (
-                  <div className={`p-4 mb-4 rounded ${loanMessage.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-                  {loanMessage.text}
-                  </div>
-              )}
-
               {/* Paso 0: Buscar Usuario */}
               {step === 0 && (
                   <div className="max-w-2xl mx-auto mt-8">
+                      {loanMessage && (
+                          <div className={`p-4 mb-4 rounded-xl transition-all ${loanMessage.type === 'error' ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-blue-100 text-blue-900 border border-blue-300 shadow-sm'}`}>
+                              <p className="text-sm font-medium">{loanMessage.text}</p>
+                          </div>
+                      )}
                       <div className="bg-white p-8 rounded-lg shadow-md border border-gray-100 relative">
                           <h3 className="text-lg font-semibold mb-4 text-blue-800">Identificar usuario</h3>
                           <div className="relative">
@@ -583,7 +593,7 @@ const Circulation: React.FC<CirculationProps> = ({ initialTab = 'prestamo' }) =>
                                   estimada.setHours(0, 0, 0, 0);
                                   const esVencido = hoy.getTime() > estimada.getTime();
                                   return esVencido ? (
-                                    <p className="text-xs text-red-600 font-bold animate-pulse">Venció el: {estimada.toLocaleDateString()}</p>
+                                    <p className="text-xs text-red-600 font-bold">Venció el: {estimada.toLocaleDateString()}</p>
                                   ) : (
                                     <p className="text-xs text-gray-500">Vence: {estimada.toLocaleDateString()}</p>
                                   );
@@ -699,6 +709,38 @@ const Circulation: React.FC<CirculationProps> = ({ initialTab = 'prestamo' }) =>
                           </div>
                       )}
                       </div>
+
+                      {/* Mensajes de Préstamo (directamente hacia abajo del material a prestar) */}
+                      {loanMessage && (
+                          <div className={`p-4 rounded-xl transition-all ${loanMessage.type === 'error' ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-blue-100 text-blue-900 border border-blue-300 shadow-sm'}`}>
+                              {loanMessage.type === 'success' ? (
+                                  <div className="space-y-1">
+                                      <div className="flex items-center gap-2">
+                                          <span className="font-black tracking-wider text-base sm:text-lg animate-text-shimmer-blue uppercase select-none">
+                                              {loanMessage.text.toLowerCase().includes('préstamo registrado') 
+                                                  ? 'PRÉSTAMO REGISTRADO CORRECTAMENTE' 
+                                                  : loanMessage.text.split('.')[0].toUpperCase()}
+                                          </span>
+                                      </div>
+                                      {loanMessage.text.includes('. ') ? (
+                                          <p className="text-sm font-medium text-gray-800">
+                                              {loanMessage.text.substring(loanMessage.text.indexOf('. ') + 2)}
+                                          </p>
+                                      ) : (
+                                          !loanMessage.text.toLowerCase().includes('préstamo registrado') && (
+                                              <p className="text-sm font-medium text-gray-800">
+                                                  {loanMessage.text}
+                                              </p>
+                                          )
+                                      )}
+                                  </div>
+                              ) : (
+                                  <p className="text-sm font-medium">
+                                      {loanMessage.text}
+                                  </p>
+                              )}
+                          </div>
+                      )}
                   </div>
                   </div>
                   </div>
@@ -762,7 +804,7 @@ const Circulation: React.FC<CirculationProps> = ({ initialTab = 'prestamo' }) =>
                                       <div className="space-y-2">
                                           <div className="flex items-center gap-2">
                                               <p className="text-xs font-bold text-gray-700 uppercase tracking-wide font-sans">
-                                                  Otros materiales en préstamo del usuario ({returnMessage.otrosPrestamos.length}):
+                                                  Otros materiales en préstamo del usuario:
                                               </p>
                                           </div>
                                           <div className="space-y-2">
@@ -911,9 +953,6 @@ const Circulation: React.FC<CirculationProps> = ({ initialTab = 'prestamo' }) =>
                                               />
                                               <span className="font-bold text-gray-900 text-base font-sans">{moroso.usuario_nombre}</span>
                                               <span className="text-sm text-gray-500 font-sans">DNI {moroso.usuario_dni} - {moroso.usuario_rol}</span>
-                                              <span className="text-sm font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded font-sans">
-                                                  Máxima demora: {moroso.maxDiasVencidos} {moroso.maxDiasVencidos === 1 ? 'día' : 'días'}
-                                              </span>
                                           </div>
 
                                           {/* Materiales con demora */}

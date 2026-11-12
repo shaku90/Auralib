@@ -17,35 +17,28 @@ const STORAGE_KEYS = {
   CONFIG: 'sigb_config'
 };
 
-// Datos semilla
+// Datos semilla: solo se cargan en la primera instalación cuando la base de datos está vacía
 const seedData = () => {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
   const SEED_VERSION_KEY = 'sigb_seed_version';
   const rawRecursos = localStorage.getItem(STORAGE_KEYS.RECURSOS);
-  const seedVersion = localStorage.getItem(SEED_VERSION_KEY);
   
-  let shouldSeed = (rawRecursos === null || seedVersion !== CURRENT_SEED_VERSION);
-  if (rawRecursos && !shouldSeed) {
+  // Si ya existen recursos en el sistema, NUNCA sobreescribir ni reiniciar datos del usuario
+  if (rawRecursos !== null) {
     try {
       JSON.parse(rawRecursos);
+      // Datos existentes válidos: preservar intacta la base de datos del usuario
+      return;
     } catch (e) {
-      shouldSeed = true;
+      console.warn('Datos locales no válidos, se procederá a restaurar estructura inicial.');
     }
   }
 
-  if (shouldSeed) {
-    // Limpiar datos obsoletos para forzar la recreación con datos semilla ricos
-    localStorage.removeItem(STORAGE_KEYS.RECURSOS);
-    localStorage.removeItem(STORAGE_KEYS.USUARIOS);
-    localStorage.removeItem(STORAGE_KEYS.PRESTAMOS);
-    localStorage.removeItem(STORAGE_KEYS.INDICES);
-    localStorage.removeItem(STORAGE_KEYS.AUTORIDADES);
-    localStorage.removeItem(STORAGE_KEYS.AUTORIDADES_TIPOS);
-
-    localStorage.setItem(STORAGE_KEYS.RECURSOS, JSON.stringify(RECURSOS_SEMILLA));
-    localStorage.setItem(STORAGE_KEYS.USUARIOS, JSON.stringify(USUARIOS_SEMILLA));
-    localStorage.setItem(STORAGE_KEYS.PRESTAMOS, JSON.stringify(PRESTAMOS_SEMILLA));
-    localStorage.setItem(STORAGE_KEYS.INDICES, JSON.stringify(INDICES_SEMILLA));
+  // Primera instalación limpia: poblar catálogo de demostración inicial
+  localStorage.setItem(STORAGE_KEYS.RECURSOS, JSON.stringify(RECURSOS_SEMILLA));
+  localStorage.setItem(STORAGE_KEYS.USUARIOS, JSON.stringify(USUARIOS_SEMILLA));
+  localStorage.setItem(STORAGE_KEYS.PRESTAMOS, JSON.stringify(PRESTAMOS_SEMILLA));
+  localStorage.setItem(STORAGE_KEYS.INDICES, JSON.stringify(INDICES_SEMILLA));
 
     const autoresSemilla = Array.from(new Set(RECURSOS_SEMILLA.flatMap(r => {
       const list = [];
@@ -77,7 +70,6 @@ const seedData = () => {
     localStorage.setItem(STORAGE_KEYS.AUTORIDADES_TIPOS, JSON.stringify(seedTypesMap));
 
     localStorage.setItem(SEED_VERSION_KEY, CURRENT_SEED_VERSION);
-  }
 };
 
 seedData();

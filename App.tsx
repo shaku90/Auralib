@@ -55,7 +55,7 @@ function App() {
   return (
     <div className="h-screen w-full bg-gray-200 flex flex-col overflow-hidden">
       <Navbar currentPage={currentPage} onNavigate={setCurrentPage} libraryName={config?.nombre_biblioteca} />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto [scrollbar-gutter:stable]">
         <main className="max-w-7xl w-full mx-auto">
           {renderPage()}
         </main>

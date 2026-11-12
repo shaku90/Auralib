@@ -36,6 +36,11 @@
     <category>Database</category>
   </categories>
   <releases>
+    <release version="1.2.3" date="2026-11-12">
+      <description>
+        <p>Mejoras de interfaz en navegación por pestañas, blindaje de persistencia de datos local, mensajes estilizados de préstamos y eliminación de saltos de desplazamiento.</p>
+      </description>
+    </release>
     <release version="1.2.2" date="2026-11-02">
       <description>
         <p>Ajustes de iconos nativos para Windows Store y soporte completo para empaquetado Flathub / Linux.</p>

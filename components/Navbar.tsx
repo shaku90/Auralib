@@ -28,7 +28,6 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage, onNavigate, libraryName })
             <div 
               className="flex-shrink-0 flex items-center cursor-pointer"
               onClick={() => onNavigate('dashboard')}
-              title="Auralib - Inicio"
             >
               {!logoError ? (
                 <img
