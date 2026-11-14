@@ -1,0 +1,49 @@
+name: Construir Instaladores Linux (.deb y .snap)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Descargar código fuente
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependencias del proyecto
+        run: npm install
+
+      - name: Compilar aplicación (Vite + Electron)
+        run: npm run build
+
+      - name: Instalar Snapcraft y LXD en Ubuntu 24.04
+        run: |
+          sudo snap install snapcraft --classic
+          sudo snap install lxd
+          sudo lxd init --auto
+          sudo usermod -aG lxd $USER
+
+      - name: Generar paquetes .deb y .snap (core24)
+        run: sg lxd -c "npx electron-builder --linux deb snap -c.snapcraft.core24.useLXD=true"
+
+      - name: Publicar instaladores para descarga (Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: auralib-linux-${{ github.sha }}
+          path: |
+            release/*.deb
+            release/*.snap
+          if-no-files-found: error

@@ -46,10 +46,25 @@
       "backgroundColor": "#1e1b4b"
     },
     "linux": {
-      "target": "deb",
+      "target": [
+        "deb",
+        "snap"
+      ],
       "icon": "assets/icon.png",
       "category": "Education",
       "maintainer": "Facundo Belascoain Kirby <facundo.belascoain@gmail.com>"
+    },
+    "snapcraft": {
+      "base": "core24",
+      "core24": {
+        "confinement": "strict",
+        "grade": "stable",
+        "summary": "Sistema de Gestión Bibliotecaria",
+        "plugs": [
+          "browser-support",
+          "removable-media"
+        ]
+      }
     }
   },
   "dependencies": {
